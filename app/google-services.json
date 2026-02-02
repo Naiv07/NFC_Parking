@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "535901221192",
+    "project_id": "nfc-parking-d13b3",
+    "storage_bucket": "nfc-parking-d13b3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:535901221192:android:be05e7abb4ce99ff9d037d",
+        "android_client_info": {
+          "package_name": "com.example.nfc_parking"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "535901221192-trsuf1kafcdf8qcuoos92f0jafhl97vm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.nfc_parking",
+            "certificate_hash": "c2e261236d7126f06d681721d347e17f03e052a5"
+          }
+        },
+        {
+          "client_id": "535901221192-bu5g51cms1duhhf6pqq12h5aes8g9194.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAWhG55TAXyUdmdjWNKV1wdSDK897SxU3k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "535901221192-bu5g51cms1duhhf6pqq12h5aes8g9194.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
