@@ -34,7 +34,7 @@ fun ProfileScreen(
     onNavigateToPayments: () -> Unit,
     onNavigateToEVCharging: () -> Unit,
     onNavigateToTerms: () -> Unit,
-    onNavigateToBookings: () -> Unit,  // ✅ ADDED THIS
+    // ✅ REMOVED: onNavigateToBookings: () -> Unit,
     onLogout: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -209,22 +209,7 @@ fun ProfileScreen(
 
             // 📋 MENU ITEMS
 
-            // ✅ MY BOOKINGS - ADDED THIS SECTION
-            item {
-                ProfileMenuItem(
-                    icon = Icons.Default.Receipt,
-                    title = "My Bookings",
-                    subtitle = "View booking history",
-                    iconBackgroundColor = iconBackgroundColor,
-                    cardColor = cardColor,
-                    textColor = textColor,
-                    onClick = onNavigateToBookings
-                )
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(12.dp))
-            }
+            // ✅ REMOVED "MY BOOKINGS" SECTION
 
             item {
                 ProfileMenuItem(
@@ -301,12 +286,11 @@ fun ProfileScreen(
     }
 }
 
-// ✅ UPDATED ProfileMenuItem to support optional subtitle
 @Composable
 fun ProfileMenuItem(
     icon: ImageVector,
     title: String,
-    subtitle: String? = null,  // ✅ ADDED THIS
+    subtitle: String? = null,
     iconBackgroundColor: Color,
     cardColor: Color,
     textColor: Color,
@@ -356,7 +340,6 @@ fun ProfileMenuItem(
                         fontWeight = FontWeight.Medium,
                         color = textColor
                     )
-                    // ✅ SHOW SUBTITLE IF PROVIDED
                     if (subtitle != null) {
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
@@ -372,68 +355,6 @@ fun ProfileMenuItem(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
                 tint = textColor.copy(alpha = 0.5f)
-            )
-        }
-    }
-}
-
-@Composable
-fun ProfileMenuItem(
-    icon: ImageVector,
-    title: String,
-    iconBackgroundColor: Color,
-    cardColor: Color,
-    textColor: Color,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick),
-        color = cardColor,
-        shadowElevation = 2.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Icon with Background
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(iconBackgroundColor),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = title,
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Title
-            Text(
-                text = title,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                color = textColor,
-                modifier = Modifier.weight(1f)
-            )
-
-            // Arrow Icon
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = "Navigate",
-                tint = textColor.copy(alpha = 0.5f),
-                modifier = Modifier.size(24.dp)
             )
         }
     }

@@ -3,13 +3,13 @@ package com.example.nfc_parking.ui.payment
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,14 +19,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.nfc_parking.data.Booking
 import com.example.nfc_parking.data.ThemeManager
 import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
 fun ParkingTicketScreen(
-    booking: Booking,
     onBack: () -> Unit
 ) {
     val isDarkTheme by ThemeManager.isDarkTheme
@@ -37,16 +35,8 @@ fun ParkingTicketScreen(
     val subtextColor = if (isDarkTheme) Color(0xFF9CA3AF) else Color(0xFF6B7280)
     val accentColor = if (isDarkTheme) Color(0xFF39FF14) else Color(0xFF4285F4)
 
-    // Format time helper
-    fun formatDateTime(timeMillis: Long): String {
-        val dateFormat = SimpleDateFormat("EEE, MMM dd, yyyy | h:mm a", Locale.getDefault())
-        return dateFormat.format(Date(timeMillis))
-    }
-
-    fun formatTime(timeMillis: Long): String {
-        val dateFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-        return dateFormat.format(Date(timeMillis))
-    }
+    // Generate unique booking ID
+    val bookingId = remember { "BID-${System.currentTimeMillis().toString().takeLast(12)}" }
 
     Box(
         modifier = Modifier
@@ -54,46 +44,49 @@ fun ParkingTicketScreen(
             .background(backgroundColor)
             .statusBarsPadding()
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = onBack,
+            // Top Bar
+            item {
+                Row(
                     modifier = Modifier
-                        .background(cardColor, CircleShape)
-                        .size(40.dp)
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = textColor
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .background(cardColor, CircleShape)
+                            .size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = textColor
+                        )
+                    }
+
+                    Text(
+                        text = "Parking Ticket",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textColor
                     )
+
+                    Spacer(modifier = Modifier.size(40.dp))
                 }
-
-                Text(
-                    text = "Parking Ticket",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor
-                )
-
-                Spacer(modifier = Modifier.size(40.dp))
             }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-            ) {
+            // Paid Badge
+            item {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.End
                 ) {
                     Surface(
@@ -109,11 +102,16 @@ fun ParkingTicketScreen(
                         )
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(8.dp))
+            item { Spacer(modifier = Modifier.height(8.dp)) }
 
+            // Main Ticket Card
+            item {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
                     shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = cardColor
@@ -125,6 +123,7 @@ fun ParkingTicketScreen(
                             .fillMaxWidth()
                             .padding(20.dp)
                     ) {
+                        // Parking Location
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -149,13 +148,13 @@ fun ParkingTicketScreen(
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text(
-                                    text = booking.locationName,
+                                    text = "Grand Central Garage",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = textColor
                                 )
                                 Text(
-                                    text = booking.spaceLabel,
+                                    text = "123 Main St, NY",
                                     fontSize = 14.sp,
                                     color = subtextColor
                                 )
@@ -168,30 +167,22 @@ fun ParkingTicketScreen(
 
                         Spacer(modifier = Modifier.height(20.dp))
 
+                        // Date & Time
                         TicketInfoItem(
                             icon = Icons.Default.CalendarToday,
                             label = "Date & Time",
-                            value = "${formatDateTime(booking.startTime)} - ${formatTime(booking.endTime)}",
+                            value = "Tue, Feb 02, 2026 | 2:30 PM - 6:00 PM",
                             textColor = textColor,
                             subtextColor = subtextColor
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        TicketInfoItem(
-                            icon = Icons.Default.Timer,
-                            label = "Duration",
-                            value = "${booking.totalHours} ${if (booking.totalHours == 1) "hour" else "hours"}",
-                            textColor = textColor,
-                            subtextColor = subtextColor
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
+                        // Payment Method
                         TicketInfoItem(
                             icon = Icons.Default.Payment,
                             label = "Paid through UPI",
-                            value = "₹${String.format("%.2f", booking.totalPrice)}",
+                            value = "",
                             textColor = textColor,
                             subtextColor = subtextColor
                         )
@@ -202,6 +193,7 @@ fun ParkingTicketScreen(
 
                         Spacer(modifier = Modifier.height(20.dp))
 
+                        // Booking ID
                         Column(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -214,8 +206,8 @@ fun ParkingTicketScreen(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = booking.bookingId,
-                                fontSize = 18.sp,
+                                text = bookingId,
+                                fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = accentColor
                             )
@@ -223,22 +215,33 @@ fun ParkingTicketScreen(
 
                         Spacer(modifier = Modifier.height(24.dp))
 
+                        // QR Code Placeholder
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(200.dp)
+                                .height(250.dp)
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(Color.White)
                                 .padding(16.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "QR CODE\n${booking.bookingId}",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black,
-                                textAlign = TextAlign.Center
-                            )
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.QrCode2,
+                                    contentDescription = "QR Code",
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(120.dp)
+                                )
+                                Text(
+                                    text = bookingId,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
@@ -253,11 +256,16 @@ fun ParkingTicketScreen(
                         )
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(24.dp))
+            item { Spacer(modifier = Modifier.height(24.dp)) }
 
+            // Action Buttons
+            item {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     TicketActionButton(

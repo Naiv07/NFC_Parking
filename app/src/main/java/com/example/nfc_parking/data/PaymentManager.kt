@@ -5,9 +5,11 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
-data class SavedUpiId(
+// Keep it as UpiId instead of SavedUpiId
+data class UpiId(
     val id: String,
-    val upiId: String
+    val upiId: String,
+    val isDefault: Boolean = false
 )
 
 object PaymentManager {

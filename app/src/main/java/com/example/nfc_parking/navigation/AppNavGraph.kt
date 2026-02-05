@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import com.example.nfc_parking.ui.bookings.BookingsHistoryScreen
+import com.example.nfc_parking.ui.alerts.AlertsScreen
 
 @Composable
 fun AppNavGraph(
@@ -40,6 +41,7 @@ fun AppNavGraph(
         startDestination = startDestination
     ) {
 
+        // AUTHENTICATION SCREEN
         composable(NavRoutes.AUTH) {
             val viewModel: AuthViewModel = viewModel()
             AuthScreen(
@@ -53,6 +55,7 @@ fun AppNavGraph(
             )
         }
 
+        // LOADING SCREEN
         composable(NavRoutes.LOADING) {
             LoadingScreen(
                 onLoadingComplete = {
@@ -63,7 +66,11 @@ fun AppNavGraph(
             )
         }
 
+        // HOME SCREEN - NOW WITH BOOKINGS NAVIGATION
         composable(NavRoutes.HOME) {
+            LaunchedEffect(Unit) {
+                bookingViewModel.clearBooking()
+            }
             HomeScreen(
                 onLogout = {
                     navController.navigate(NavRoutes.AUTH) {
@@ -73,10 +80,14 @@ fun AppNavGraph(
                 navController = navController,
                 onLocationClick = { location ->
                     navController.navigate(NavRoutes.parkingDetail(location.id))
+                },
+                onNavigateToBookings = {
+                    navController.navigate(NavRoutes.BOOKINGS_HISTORY)
                 }
             )
         }
 
+        // PARKING DETAIL SCREEN
         composable(
             route = NavRoutes.PARKING_DETAIL,
             arguments = listOf(navArgument("locationId") { type = NavType.StringType })
@@ -97,6 +108,7 @@ fun AppNavGraph(
             }
         }
 
+        // SELECT PARKING SPACE SCREEN
         composable(
             route = NavRoutes.SELECT_SPACE,
             arguments = listOf(
@@ -118,6 +130,7 @@ fun AppNavGraph(
             )
         }
 
+        // PAYMENT SCREEN
         composable(NavRoutes.PAYMENT) {
             val booking by bookingViewModel.currentBooking
 
@@ -136,13 +149,21 @@ fun AppNavGraph(
             }
         }
 
-        // 📜 BOOKINGS HISTORY SCREEN ✅ NEW
+        // BOOKINGS HISTORY SCREEN - SHOWS ALL BOOKINGS (ACTIVE, CANCELLED, COMPLETED, PAST)
         composable(NavRoutes.BOOKINGS_HISTORY) {
             BookingsHistoryScreen(
                 onBack = { navController.popBackStack() }
             )
         }
 
+        // ALERTS/NOTIFICATIONS SCREEN
+        composable(NavRoutes.ALERTS) {
+            AlertsScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        // PROFILE SCREEN
         composable(NavRoutes.PROFILE) {
             val viewModel: ProfileViewModel = viewModel()
             val userName by viewModel.userName
@@ -159,7 +180,6 @@ fun AppNavGraph(
                 headerImageUrl = null,
                 onNavigateToVehicles = { navController.navigate("vehicles") },
                 onNavigateToPayments = { navController.navigate("payments") },
-                onNavigateToBookings = { navController.navigate(NavRoutes.BOOKINGS_HISTORY) }, // ✅ ADD THIS
                 onNavigateToEVCharging = { navController.navigate("ev_charging") },
                 onNavigateToTerms = { navController.navigate("terms") },
                 onLogout = {
@@ -173,75 +193,77 @@ fun AppNavGraph(
             )
         }
 
+        // VEHICLES SCREEN
         composable("vehicles") {
             VehiclesScreen(onBack = { navController.popBackStack() })
         }
 
+        // PLACEHOLDER SCREENS
         composable("payments") { }
         composable("ev_charging") { }
         composable("terms") { }
     }
 }
 
-fun getAllParkingLocations(): List<ParkingLocation> {
+private fun getAllParkingLocations(): List<ParkingLocation> {
     return listOf(
         ParkingLocation(
             id = "1",
-            name = "Illinois Center",
-            address = "111 E Wacker Dr, Chicago",
+            name = "Connaught Place Parking",
+            address = "CP Block, Connaught Place, New Delhi",
             distance = "1.4 km",
             duration = "5 min",
-            pricePerHour = "$5",
+            pricePerHour = "Rs.5",
             availableSpots = 24,
             accentColor = Color(0xFF9ACC06)
         ),
         ParkingLocation(
             id = "2",
-            name = "AON Center Parking",
-            address = "200 E Randolph St, Chicago",
+            name = "Cyber City Tower Parking",
+            address = "DLF Cyber City, Gurgaon",
             distance = "2.1 km",
             duration = "8 min",
-            pricePerHour = "$6",
+            pricePerHour = "Rs.6",
             availableSpots = 15,
             accentColor = Color(0xFF00D9FF)
         ),
         ParkingLocation(
             id = "3",
-            name = "Millennium Park Garage",
-            address = "5 S Columbus Dr, Chicago",
+            name = "Select Citywalk Mall",
+            address = "Saket, New Delhi",
             distance = "0.8 km",
             duration = "3 min",
-            pricePerHour = "$8",
+            pricePerHour = "Rs.8",
             availableSpots = 42,
             accentColor = Color(0xFFFF6B9D)
         ),
         ParkingLocation(
             id = "4",
-            name = "Navy Pier Parking",
-            address = "600 E Grand Ave, Chicago",
+            name = "India Gate Parking",
+            address = "Rajpath, New Delhi",
             distance = "3.2 km",
             duration = "12 min",
-            pricePerHour = "$10",
+            pricePerHour = "Rs.10",
             availableSpots = 8,
             accentColor = Color(0xFFFFB800)
         ),
         ParkingLocation(
             id = "5",
-            name = "Mag Mile Plaza",
-            address = "Water Tower Place, Chicago",
+            name = "Phoenix Marketcity",
+            address = "LBS Marg, Kurla, Mumbai",
             distance = "1.9 km",
             duration = "7 min",
-            pricePerHour = "$7",
+            pricePerHour = "Rs.7",
             availableSpots = 31,
             accentColor = Color(0xFF9D4EDD)
         ),
         ParkingLocation(
             id = "6",
-            name = "Grant Park Underground",
-            address = "337 E Randolph St, Chicago",
+            name = "Bangalore Central Mall",
+            address = "MG Road, Bengaluru",
             distance = "1.1 km",
             duration = "4 min",
-            pricePerHour = "$6",
+            pricePerHour = "Rs.6",
             availableSpots = 19,
             accentColor = Color(0xFF05B273)
         )

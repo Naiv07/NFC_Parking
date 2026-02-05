@@ -170,7 +170,7 @@ fun BookingConfirmationScreen(
 
                         ConfirmationSummaryItem(
                             icon = Icons.Default.Payment,
-                            text = "Amount Paid: ₹${String.format("%.2f", booking.totalPrice)}",
+                            text = "Amount Paid: Rs.${String.format("%.2f", booking.totalPrice)}",
                             textColor = textColor,
                             subtextColor = subtextColor
                         )

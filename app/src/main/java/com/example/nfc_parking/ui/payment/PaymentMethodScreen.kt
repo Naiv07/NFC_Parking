@@ -40,6 +40,11 @@ fun PaymentMethodScreen(
     onBack: () -> Unit,
     onPaymentSelected: () -> Unit
 ) {
+
+    // ✅ ADD THIS LINE - Prevents Android from popping entire payment flow
+    androidx.activity.compose.BackHandler(enabled = true) {
+        onBack()
+    }
     val isDarkTheme by ThemeManager.isDarkTheme
     var showAddCard by remember { mutableStateOf(false) }
     var showAddUpi by remember { mutableStateOf(false) }

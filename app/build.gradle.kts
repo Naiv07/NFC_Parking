@@ -60,6 +60,19 @@ dependencies {
     implementation("androidx.compose.ui:ui:1.6.0")
     implementation("androidx.compose.material3:material3:1.2.0")
 
+    implementation("com.google.code.gson:gson:2.10.1")
+
+    // RecyclerView
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+// CardView
+    implementation("androidx.cardview:cardview:1.0.0")
+// Material Components
+    implementation("com.google.android.material:material:1.11.0")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx")
+
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
     // Firebase Firestore for real-time database
@@ -97,6 +110,7 @@ dependencies {
     implementation("com.airbnb.android:lottie-compose:6.1.0")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation(libs.firebase.crashlytics.buildtools)
+    implementation(libs.androidx.foundation.layout)
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

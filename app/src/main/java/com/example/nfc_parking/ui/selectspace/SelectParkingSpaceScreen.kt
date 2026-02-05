@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.nfc_parking.data.Booking
 import com.example.nfc_parking.data.BookingManager
+import com.example.nfc_parking.data.BookingResult
 import com.example.nfc_parking.data.ThemeManager
 import kotlinx.coroutines.launch
 import kotlin.random.Random
@@ -66,6 +67,8 @@ fun SelectParkingSpaceScreen(
     var selectedDuration by remember { mutableStateOf(2) }
     var isBooking by remember { mutableStateOf(false) }
     var bookingError by remember { mutableStateOf<String?>(null) }
+    var showCancelDialog by remember { mutableStateOf(false) }
+    var bookingToCancel by remember { mutableStateOf<String?>(null) }
 
     // Get booked spaces from BookingManager (real-time)
     val bookedSpaces by BookingManager.bookedSpaces
@@ -81,6 +84,8 @@ fun SelectParkingSpaceScreen(
     // Start listening for bookings when screen opens
     LaunchedEffect(locationId) {
         BookingManager.startListening(locationId)
+        // Also cleanup expired bookings when opening this screen
+        BookingManager.cleanupExpiredBookings(locationId)
     }
 
     // Stop listening when screen closes
@@ -287,39 +292,6 @@ fun SelectParkingSpaceScreen(
                 initialDuration = selectedDuration,
                 isBooking = isBooking,
                 onDurationChange = { duration -> selectedDuration = duration },
-                onConfirm = {
-                    scope.launch {
-                        isBooking = true
-
-                        // Get current user info
-                        val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
-                        val userName = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.displayName ?: "User"
-
-                        // Book the space
-                        val result = BookingManager.bookSpace(
-                            spaceId = selectedSpace!!.id,
-                            userId = userId,
-                            userName = userName,
-                            locationId = locationId,
-                            locationName = locationName,
-                            spaceLabel = selectedSpace!!.label,
-                            durationHours = selectedDuration
-                        )
-
-                        isBooking = false
-
-                        result.onSuccess { booking ->
-                            sheetState.hide()
-                            showConfirmation = false
-                            selectedSpace = null
-                            onNavigateToPayment(booking)
-                        }.onFailure { error ->
-                            bookingError = error.message
-                            sheetState.hide()
-                            showConfirmation = false
-                        }
-                    }
-                },
                 onDismiss = {
                     scope.launch {
                         sheetState.hide()
@@ -333,8 +305,8 @@ fun SelectParkingSpaceScreen(
                         val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
                         val userName = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.displayName ?: "User"
 
-                        // ✅ Use reserveSpace instead of bookSpace
-                        val result = BookingManager.reserveSpace(
+                        // ✅ Use reserveSpace with proper BookingResult handling
+                        when (val result = BookingManager.reserveSpace(
                             spaceId = selectedSpace!!.id,
                             userId = userId,
                             userName = userName,
@@ -342,20 +314,24 @@ fun SelectParkingSpaceScreen(
                             locationName = locationName,
                             spaceLabel = selectedSpace!!.label,
                             durationHours = selectedDuration
-                        )
+                        )) {
+                            is BookingResult.Success -> {
+                                val booking = result.booking
+                                // Don't add to history yet - wait for payment confirmation
+                                sheetState.hide()
+                                showConfirmation = false
+                                selectedSpace = null
+                                onNavigateToPayment(booking)
+                            }
+                            is BookingResult.Error -> {
+                                bookingError = result.message
+                                sheetState.hide()
+                                showConfirmation = false
+                            }
+                        }
 
                         isBooking = false
 
-                        result.onSuccess { booking ->
-                            sheetState.hide()
-                            showConfirmation = false
-                            selectedSpace = null
-                            onNavigateToPayment(booking)
-                        }.onFailure { error ->
-                            bookingError = error.message
-                            sheetState.hide()
-                            showConfirmation = false
-                        }
                     }
                 }
             )
@@ -400,7 +376,6 @@ fun ConfirmBookingSheet(
     initialDuration: Int = 2,
     isBooking: Boolean = false,
     onDurationChange: (Int) -> Unit = {},
-    onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     onPaymentMethodClick: () -> Unit
 ) {
@@ -722,13 +697,13 @@ fun ConfirmBookingSheet(
         ) {
             Column {
                 Text(
-                    text = "$${String.format("%.2f", 4.12 * selectedHours)}",
+                    text = "Rs.${String.format("%.2f", 4.12 * selectedHours)}",
                     fontSize = 32.sp,
                     fontWeight = FontWeight.Bold,
                     color = textColor
                 )
                 Text(
-                    text = "$4.12/hr × $selectedHours hr",
+                    text = "Rs.4.12/hr × $selectedHours hr",
                     fontSize = 12.sp,
                     color = subtextColor
                 )
@@ -798,9 +773,6 @@ fun ParkingSectionView(
     subtextColor: Color,
     onSpaceClick: (ParkingSpace) -> Unit
 ) {
-    // Filter to only show available spaces (remove booked ones)
-    val availableSpaces = section.spaces.filter { it.id !in bookedSpaces }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()

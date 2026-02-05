@@ -17,16 +17,17 @@ enum class PaymentType {
 data class SavedCard(
     val id: String,
     val cardholderName: String,
-    val cardNumber: String, // Last 4 digits or full (masked)
+    val cardNumber: String,
     val expiryDate: String,
-    val cvv: String = "", // Don't store in production
+    val cvv: String = "",
     val cardType: PaymentType,
     val bankName: String = "",
     val isDefault: Boolean = false,
     val gradientColors: List<Color> = listOf(Color(0xFFFF6B6B), Color(0xFFFF8E53))
 )
 
-data class UpiId(
+// ✅ Renamed to match usage in PaymentMethodScreen
+data class SavedUpiId(
     val id: String,
     val upiId: String,
     val isDefault: Boolean = false
