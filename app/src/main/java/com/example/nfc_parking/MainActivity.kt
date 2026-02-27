@@ -3,62 +3,80 @@ package com.example.nfc_parking
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.getValue
-import androidx.lifecycle.lifecycleScope
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
-import com.example.nfc_parking.data.AlertManager
-import com.example.nfc_parking.data.BookingHistory
+import com.example.nfc_parking.data.AlertsManager
 import com.example.nfc_parking.data.ThemeManager
 import com.example.nfc_parking.data.UserPreferencesManager
+import com.example.nfc_parking.data.VehicleManager
 import com.example.nfc_parking.navigation.AppNavGraph
 import com.example.nfc_parking.navigation.NavRoutes
-import com.example.nfc_parking.ui.theme.NFC_parkingTheme
-import kotlinx.coroutines.flow.first
+import com.example.nfc_parking.ui.theme.Nfc_parkingTheme
+import com.google.firebase.FirebaseApp
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-
-    private lateinit var preferencesManager: UserPreferencesManager
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ✅ Initialize BookingHistory persistence
-        BookingHistory.initialize(applicationContext)
+        // Initialize Firebase
+        FirebaseApp.initializeApp(this)
 
-        // ✅ Initialize time-based alerts monitoring
-        AlertManager.initializeMonitoring()
+        // Initialize AlertsManager with application context
+        AlertsManager.initialize(applicationContext)
 
-        preferencesManager = UserPreferencesManager(this)
-        ThemeManager.initialize(this)
+        // ✅ Initialize ThemeManager with context
+        ThemeManager.initialize(applicationContext)
 
-        AlertManager.initializeMonitoring()
+        // Initialize UserPreferencesManager
+        val preferencesManager = UserPreferencesManager(this)
 
-        // ✅ Use lifecycleScope instead of runBlocking
-        var initialRoute = NavRoutes.AUTH
-
-        lifecycleScope.launch {
-            val isLoggedIn = preferencesManager.isLoggedIn.first()
-            initialRoute = if (isLoggedIn) NavRoutes.HOME else NavRoutes.AUTH
-        }
+        enableEdgeToEdge()
 
         setContent {
-            val isDarkTheme by ThemeManager.isDarkTheme
+            val scope = rememberCoroutineScope()
 
-            NFC_parkingTheme(darkTheme = isDarkTheme) {
-                val navController = rememberNavController()
+            // ✅ Load vehicles on app start
+            LaunchedEffect(Unit) {
+                scope.launch {
+                    android.util.Log.d("MainActivity", "Loading user vehicles...")
+                    VehicleManager.loadUserVehicles().onSuccess { vehicles ->
+                        android.util.Log.d("MainActivity", "Loaded ${vehicles.size} vehicles")
+                    }.onFailure { error ->
+                        android.util.Log.e("MainActivity", "Failed to load vehicles: ${error.message}")
+                    }
+                }
+            }
 
-                AppNavGraph(
-                    navController = navController,
-                    startDestination = initialRoute,
-                    preferencesManager = preferencesManager
-                )
+            Nfc_parkingTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    val navController = rememberNavController()
+
+                    // Check if user has completed permissions
+                    val hasCompletedPermissions = preferencesManager.hasCompletedPermissions()
+
+                    val startDestination = if (hasCompletedPermissions) {
+                        NavRoutes.AUTH
+                    } else {
+                        NavRoutes.PERMISSIONS
+                    }
+
+                    AppNavGraph(
+                        navController = navController,
+                        startDestination = startDestination,
+                        preferencesManager = preferencesManager
+                    )
+                }
             }
         }
-    }
-    override fun onDestroy() {
-        super.onDestroy()
-        // ✅ Cleanup AlertManager when app closes
-        AlertManager.cleanup()
     }
 }

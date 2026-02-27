@@ -22,7 +22,7 @@ class VehiclesViewModel : ViewModel() {
 
     // Get vehicles by type
     fun getVehiclesByType(type: VehicleType): List<Vehicle> {
-        return vehicles.filter { it.type == type }
+        return vehicles.filter { it.vehicleType == type }
     }
 
     // Update vehicle

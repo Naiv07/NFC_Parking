@@ -2,7 +2,9 @@ package com.example.nfc_parking.ui.theme
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
+import com.example.nfc_parking.data.ThemeManager
 
 private val DarkColorScheme = darkColorScheme(
     primary = NeonGreen,
@@ -23,14 +25,15 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun NFC_parkingTheme(
-    darkTheme: Boolean,
+fun Nfc_parkingTheme(
     content: @Composable () -> Unit
 ) {
+    // Get theme from ThemeManager
+    val isDarkTheme by ThemeManager.isDarkTheme
+
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
+        colorScheme = if (isDarkTheme) DarkColorScheme else LightColorScheme,
         typography = Typography,
         content = content
     )
 }
-

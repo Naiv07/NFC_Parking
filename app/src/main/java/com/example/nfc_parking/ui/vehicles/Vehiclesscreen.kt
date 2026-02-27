@@ -1,12 +1,10 @@
 package com.example.nfc_parking.ui.vehicles
 
-import android.util.Log
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -15,396 +13,463 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.nfc_parking.data.ThemeManager
+import com.example.nfc_parking.data.*
 import kotlinx.coroutines.launch
 
-private const val TAG = "VehiclesScreen"
-
-// Vehicle Type Template for display
-data class VehicleTypeTemplate(
-    val type: VehicleType,
-    val title: String,
-    val subtitle: String,
-    val icon: ImageVector,
-    val buttonLabel: String  // ⭐ NEW: Dynamic button label
-)
-
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun VehiclesScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit = {},
+    onAddVehicle: () -> Unit = {},
+    onEditVehicle: (Vehicle) -> Unit = {}
 ) {
-    Log.d(TAG, "VehiclesScreen composing...")
-
     val isDarkTheme by ThemeManager.isDarkTheme
-    var showAddDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
-    // Define vehicle type templates for swipe display
-    val vehicleTypeTemplates = remember {
-        listOf(
-            VehicleTypeTemplate(
-                type = VehicleType.CAR,
-                title = "Hassle-Free Parking",
-                subtitle = "Cars",
-                icon = Icons.Default.DirectionsCar,
-                buttonLabel = "Add Car"  // ⭐ Dynamic label
-            ),
-            VehicleTypeTemplate(
-                type = VehicleType.BIKE,
-                title = "Quick Bike Parking",
-                subtitle = "Two-Wheeler",
-                icon = Icons.Default.TwoWheeler,
-                buttonLabel = "Add Bike"  // ⭐ Dynamic label
-            ),
-            VehicleTypeTemplate(
-                type = VehicleType.EV,
-                title = "Electric Charging",
-                subtitle = "Electric Vehicle",
-                icon = Icons.Default.EvStation,
-                buttonLabel = "Add EV"  // ⭐ Dynamic label
-            ),
-            VehicleTypeTemplate(
-                type = VehicleType.TRUCK,
-                title = "Commercial Parking",
-                subtitle = "Heavy Vehicle",
-                icon = Icons.Default.LocalShipping,
-                buttonLabel = "Add Truck"  // ⭐ Dynamic label
-            )
-        )
-    }
+    var vehicles by remember { mutableStateOf<List<Vehicle>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var showDeleteDialog by remember { mutableStateOf<Vehicle?>(null) }
 
-    // Pager state for vehicle types
-    val pagerState = rememberPagerState(pageCount = { vehicleTypeTemplates.size })
-    val currentTemplate = vehicleTypeTemplates.getOrNull(pagerState.currentPage)
-        ?: vehicleTypeTemplates[0]
-    val coroutineScope = rememberCoroutineScope()
-
-    // 🎨 Color Scheme
-    val backgroundColor = if (isDarkTheme) Color(0xFF0A0A0A) else Color(0xFFF9FAFB)
-    val cardColor = if (isDarkTheme) Color(0xFF1A1A1A) else Color.White
+    // Colors
+    val backgroundColor = if (isDarkTheme) Color(0xFF0A0A0A) else Color(0xFFF8F9FA)
     val textColor = if (isDarkTheme) Color.White else Color(0xFF1F2937)
     val subtextColor = if (isDarkTheme) Color(0xFF9CA3AF) else Color(0xFF6B7280)
-    val accentColor = if (isDarkTheme) Color(0xFF39FF14) else Color(0xFF1E3A8A)
-    val selectedButtonColor = if (isDarkTheme) Color(0xFF39FF14) else Color(0xFF1E3A8A)
+    val cardColor = if (isDarkTheme) Color(0xFF1A1A1A) else Color.White
+    val accentGreen = Color(0xFF39FF14)
+
+    // Load vehicles
+    LaunchedEffect(Unit) {
+        isLoading = true
+        VehicleManager.loadUserVehicles().onSuccess {
+            vehicles = VehicleManager.vehicles
+        }
+        isLoading = false
+    }
+
+    // Observe vehicle changes
+    LaunchedEffect(VehicleManager.vehicles) {
+        vehicles = VehicleManager.vehicles
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(backgroundColor)
-            .statusBarsPadding()  // ⭐ Avoid notch/status bar
+            .statusBarsPadding()
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // 🔝 TOP BAR
+            // Top Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(20.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Back button
-                IconButton(onClick = onBack) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = textColor
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = textColor
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "My Vehicles",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textColor
                     )
                 }
 
+                IconButton(onClick = { /* Settings */ }) {
+                    Icon(
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = "Menu",
+                        tint = textColor
+                    )
+                }
+            }
+
+            // Header Section
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+            ) {
                 Text(
-                    text = "My Vehicles",
+                    text = "Hassle-Free Parking",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = textColor
                 )
-
-                // Menu Button
-                IconButton(onClick = { /* TODO: Open menu */ }) {
-                    Icon(
-                        imageVector = Icons.Default.Menu,
-                        contentDescription = "Menu",
-                        tint = textColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 🚗 VEHICLE SECTION WITH HORIZONTAL PAGER
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(horizontal = 20.dp)
-            ) {
-                // Title & Subtitle (updates based on swipe)
                 Text(
-                    text = currentTemplate.title,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = currentTemplate.subtitle,
-                    fontSize = 15.sp,
+                    text = if (vehicles.isEmpty()) "No vehicles" else "${vehicles.size} ${if (vehicles.size == 1) "vehicle" else "vehicles"}",
+                    fontSize = 14.sp,
                     color = subtextColor
-                )
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Vehicle Image Carousel
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(220.dp)
-                ) {
-                    HorizontalPager(
-                        state = pagerState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 40.dp),
-                        pageSpacing = 16.dp
-                    ) { page ->
-                        val template = vehicleTypeTemplates.getOrNull(page)
-                            ?: vehicleTypeTemplates[0]
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(24.dp))
-                                .background(cardColor),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // Vehicle Icon based on type
-                            Icon(
-                                imageVector = template.icon,
-                                contentDescription = null,
-                                tint = accentColor.copy(alpha = 0.3f),
-                                modifier = Modifier.size(160.dp)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Page Indicator Dots
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    repeat(vehicleTypeTemplates.size) { index ->
-                        Box(
-                            modifier = Modifier
-                                .size(
-                                    width = if (pagerState.currentPage == index) 24.dp else 8.dp,
-                                    height = 8.dp
-                                )
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(
-                                    if (pagerState.currentPage == index) accentColor
-                                    else subtextColor.copy(alpha = 0.3f)
-                                )
-                        )
-                        if (index < vehicleTypeTemplates.size - 1) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // 🔘 VEHICLE TYPE BUTTONS
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                VehicleTypeChip(
-                    icon = Icons.Default.DirectionsCar,
-                    label = "Car",
-                    isSelected = currentTemplate.type == VehicleType.CAR,
-                    selectedColor = selectedButtonColor,
-                    cardColor = cardColor,
-                    textColor = textColor,
-                    isDarkTheme = isDarkTheme,
-                    modifier = Modifier.weight(1f),
-                    onClick = {
-                        coroutineScope.launch {
-                            pagerState.animateScrollToPage(0)
-                        }
-                    }
-                )
-
-                VehicleTypeChip(
-                    icon = Icons.Default.TwoWheeler,
-                    label = "Bike",
-                    isSelected = currentTemplate.type == VehicleType.BIKE,
-                    selectedColor = selectedButtonColor,
-                    cardColor = cardColor,
-                    textColor = textColor,
-                    isDarkTheme = isDarkTheme,
-                    modifier = Modifier.weight(1f),
-                    onClick = {
-                        coroutineScope.launch {
-                            pagerState.animateScrollToPage(1)
-                        }
-                    }
-                )
-
-                VehicleTypeChip(
-                    icon = Icons.Default.EvStation,
-                    label = "EV",
-                    isSelected = currentTemplate.type == VehicleType.EV,
-                    selectedColor = selectedButtonColor,
-                    cardColor = cardColor,
-                    textColor = textColor,
-                    isDarkTheme = isDarkTheme,
-                    modifier = Modifier.weight(1f),
-                    onClick = {
-                        coroutineScope.launch {
-                            pagerState.animateScrollToPage(2)
-                        }
-                    }
-                )
-
-                VehicleTypeChip(
-                    icon = Icons.Default.LocalShipping,
-                    label = "Truck",
-                    isSelected = currentTemplate.type == VehicleType.TRUCK,
-                    selectedColor = selectedButtonColor,
-                    cardColor = cardColor,
-                    textColor = textColor,
-                    isDarkTheme = isDarkTheme,
-                    modifier = Modifier.weight(1f),
-                    onClick = {
-                        coroutineScope.launch {
-                            pagerState.animateScrollToPage(3)
-                        }
-                    }
                 )
             }
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // ➕ DYNAMIC ADD VEHICLE BUTTON
-            Button(
-                onClick = {
-                    Log.d(TAG, "${currentTemplate.buttonLabel} button clicked")
-                    showAddDialog = true
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = accentColor,
-                    contentColor = if (isDarkTheme) Color.Black else Color.White
-                )
-            ) {
-                Text(
-                    text = currentTemplate.buttonLabel,  // ⭐ Dynamic button text
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
+            // Content
+            if (isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = accentGreen)
+                }
+            } else if (vehicles.isEmpty()) {
+                // Empty State
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(40.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .background(accentGreen.copy(alpha = 0.15f), RoundedCornerShape(24.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DirectionsCar,
+                            contentDescription = null,
+                            tint = accentGreen,
+                            modifier = Modifier.size(60.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text(
+                        text = "No Vehicles Added",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textColor
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Add your vehicle to get started",
+                        fontSize = 14.sp,
+                        color = subtextColor
+                    )
+                }
+            } else {
+                // Vehicles List
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(vehicles) { vehicle ->
+                        VehicleCard(
+                            vehicle = vehicle,
+                            textColor = textColor,
+                            subtextColor = subtextColor,
+                            cardColor = cardColor,
+                            accentGreen = accentGreen,
+                            onEdit = { onEditVehicle(vehicle) },
+                            onDelete = { showDeleteDialog = vehicle },
+                            onSetDefault = {
+                                scope.launch {
+                                    VehicleManager.setDefaultVehicle(vehicle.id)
+                                    vehicles = VehicleManager.vehicles
+                                }
+                            }
+                        )
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(80.dp))
+            // Bottom Navigation (Vehicle Type Selector)
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = cardColor,
+                shadowElevation = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    VehicleTypeButton(
+                        icon = Icons.Default.DirectionsCar,
+                        label = "Car",
+                        isSelected = true,
+                        accentGreen = accentGreen,
+                        textColor = textColor,
+                        onClick = { /* Filter */ }
+                    )
+                    VehicleTypeButton(
+                        icon = Icons.Default.TwoWheeler,
+                        label = "Bike",
+                        isSelected = false,
+                        accentGreen = accentGreen,
+                        textColor = textColor,
+                        onClick = { /* Filter */ }
+                    )
+                    VehicleTypeButton(
+                        icon = Icons.Default.EvStation,
+                        label = "EV",
+                        isSelected = false,
+                        accentGreen = accentGreen,
+                        textColor = textColor,
+                        onClick = { /* Filter */ }
+                    )
+                    VehicleTypeButton(
+                        icon = Icons.Default.LocalShipping,
+                        label = "Truck",
+                        isSelected = false,
+                        accentGreen = accentGreen,
+                        textColor = textColor,
+                        onClick = { /* Filter */ }
+                    )
+                }
+            }
+
+            // Add Vehicle Button
+            Button(
+                onClick = onAddVehicle,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+                    .height(56.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = accentGreen
+                ),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    tint = Color.Black
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Add Car",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+            }
         }
 
-        // 📝 ADD VEHICLE DIALOG
-        if (showAddDialog) {
-            SimpleAddVehicleDialog(
-                vehicleType = currentTemplate.buttonLabel,  // ⭐ Pass dynamic label
-                onDismiss = { showAddDialog = false }
-            )
-        }
-    }
-
-    Log.d(TAG, "VehiclesScreen composed successfully")
-}
-
-@Composable
-fun RowScope.VehicleTypeChip(
-    icon: ImageVector,
-    label: String,
-    isSelected: Boolean,
-    selectedColor: Color,
-    cardColor: Color,
-    textColor: Color,
-    isDarkTheme: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = modifier
-            .height(72.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick),
-        color = if (isSelected) selectedColor else cardColor,
-        shadowElevation = if (isSelected) 0.dp else 1.dp,
-        tonalElevation = if (isSelected) 0.dp else 1.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = if (isSelected) {
-                    if (isDarkTheme) Color.Black else Color.White
-                } else {
-                    textColor
+        // Delete Confirmation Dialog
+        if (showDeleteDialog != null) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = null },
+                title = { Text("Delete Vehicle?") },
+                text = {
+                    Text("Are you sure you want to delete ${showDeleteDialog!!.vehicleName}?")
                 },
-                modifier = Modifier.size(28.dp)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = label,
-                fontSize = 11.sp,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = if (isSelected) {
-                    if (isDarkTheme) Color.Black else Color.White
-                } else {
-                    textColor
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            scope.launch {
+                                VehicleManager.deleteVehicle(showDeleteDialog!!.id)
+                                vehicles = VehicleManager.vehicles
+                                showDeleteDialog = null
+                            }
+                        }
+                    ) {
+                        Text("Delete", color = Color.Red)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteDialog = null }) {
+                        Text("Cancel")
+                    }
                 }
             )
         }
     }
 }
 
-// Simple dialog to avoid dependencies
 @Composable
-fun SimpleAddVehicleDialog(
-    vehicleType: String,  // ⭐ Accept dynamic vehicle type
-    onDismiss: () -> Unit
+private fun VehicleCard(
+    vehicle: Vehicle,
+    textColor: Color,
+    subtextColor: Color,
+    cardColor: Color,
+    accentGreen: Color,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onSetDefault: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(vehicleType) },  // ⭐ Show dynamic title
-        text = { Text("Vehicle addition feature coming soon!") },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("OK")
+    val vehicleIcon = when (vehicle.vehicleType) {
+        VehicleType.CAR -> Icons.Default.DirectionsCar
+        VehicleType.BIKE -> Icons.Default.TwoWheeler
+        VehicleType.EV -> Icons.Default.EvStation
+        VehicleType.TRUCK -> Icons.Default.LocalShipping
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = cardColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(accentGreen.copy(alpha = 0.15f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = vehicleIcon,
+                            contentDescription = null,
+                            tint = accentGreen,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column {
+                        Text(
+                            text = vehicle.vehicleName,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textColor
+                        )
+                        Text(
+                            text = vehicle.licensePlate,
+                            fontSize = 14.sp,
+                            color = subtextColor
+                        )
+                    }
+                }
+
+                Row {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit",
+                            tint = subtextColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete",
+                            tint = Color.Red,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                if (vehicle.model.isNotEmpty()) {
+                    Text(
+                        text = "Model: ${vehicle.model}",
+                        fontSize = 12.sp,
+                        color = subtextColor
+                    )
+                }
+                if (vehicle.color.isNotEmpty()) {
+                    Text(
+                        text = "Color: ${vehicle.color}",
+                        fontSize = 12.sp,
+                        color = subtextColor
+                    )
+                }
+            }
+
+            if (!vehicle.isDefault) {
+                Spacer(modifier = Modifier.height(12.dp))
+                TextButton(onClick = onSetDefault) {
+                    Text(
+                        text = "Set as Default",
+                        color = accentGreen,
+                        fontSize = 12.sp
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = accentGreen.copy(alpha = 0.15f)
+                ) {
+                    Text(
+                        text = "✓ Default Vehicle",
+                        color = accentGreen,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                    )
+                }
             }
         }
-    )
+    }
+}
+
+@Composable
+private fun VehicleTypeButton(
+    icon: ImageVector,
+    label: String,
+    isSelected: Boolean,
+    accentGreen: Color,
+    textColor: Color,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .background(
+                    if (isSelected) accentGreen else Color.Transparent,
+                    RoundedCornerShape(12.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (isSelected) Color.Black else textColor,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            color = if (isSelected) accentGreen else textColor,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+        )
+    }
 }

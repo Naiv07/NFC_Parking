@@ -49,6 +49,18 @@ dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
 
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.android.gms:play-services-auth:20.7.0")
+
+
+    implementation("com.google.accompanist:accompanist-permissions:0.32.0")
+
+
+    implementation("com.google.zxing:core:3.5.2")
+
+    implementation("com.google.android.gms:play-services-location:21.1.0")
+
     // Compose BOM
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.activity:activity-compose")
@@ -111,6 +123,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation(libs.firebase.crashlytics.buildtools)
     implementation(libs.androidx.foundation.layout)
+    implementation(libs.androidx.room.ktx)
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

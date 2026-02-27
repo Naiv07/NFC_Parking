@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.compose.runtime.mutableStateOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 object ThemeManager {
@@ -12,20 +11,23 @@ object ThemeManager {
 
     private var preferencesManager: UserPreferencesManager? = null
 
-    // Initialize with context
+    /**
+     * Initialize with context
+     */
     fun initialize(context: Context) {
         preferencesManager = UserPreferencesManager(context)
 
         // Load saved theme preference
         CoroutineScope(Dispatchers.IO).launch {
-            val savedTheme = preferencesManager?.isDarkTheme?.first() ?: false
+            val savedTheme = preferencesManager?.getThemePreference() ?: false
             isDarkTheme.value = savedTheme
         }
     }
 
-    // Toggle theme (no parameter needed)
-    fun toggleTheme(bool: Boolean) {
-        val newValue = !isDarkTheme.value
+    /**
+     * Toggle theme (accepts boolean parameter to set specific value)
+     */
+    fun toggleTheme(newValue: Boolean) {
         isDarkTheme.value = newValue
 
         CoroutineScope(Dispatchers.IO).launch {
@@ -33,7 +35,9 @@ object ThemeManager {
         }
     }
 
-    // Set specific theme value
+    /**
+     * Set specific theme value (RECOMMENDED - prevents auto-toggle)
+     */
     fun setTheme(newValue: Boolean) {
         isDarkTheme.value = newValue
 

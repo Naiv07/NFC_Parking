@@ -1,5 +1,6 @@
 package com.example.nfc_parking.ui.bookings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,22 +12,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.nfc_parking.data.Booking
-import com.example.nfc_parking.data.BookingHistory
-import com.example.nfc_parking.data.BookingManager
-import com.example.nfc_parking.data.ThemeManager
+import com.example.nfc_parking.data.*
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.time.delay
 import java.text.SimpleDateFormat
 import java.util.*
-import com.example.nfc_parking.data.BookingStatus
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookingsHistoryScreen(
     onBack: () -> Unit = {}
@@ -34,172 +32,321 @@ fun BookingsHistoryScreen(
     val isDarkTheme by ThemeManager.isDarkTheme
     val scope = rememberCoroutineScope()
 
+    BackHandler { onBack() }
+
     var userBookings by remember { mutableStateOf<List<Booking>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    var isLoading by remember { mutableStateOf(false) }
     var showCancelDialog by remember { mutableStateOf(false) }
     var bookingToCancel by remember { mutableStateOf<Booking?>(null) }
     var isCancelling by remember { mutableStateOf(false) }
 
-    // Theme colors
     val backgroundColor = if (isDarkTheme) Color(0xFF0A0A0A) else Color(0xFFF8F9FA)
     val cardColor = if (isDarkTheme) Color(0xFF1A1A1A) else Color.White
     val textColor = if (isDarkTheme) Color.White else Color(0xFF1F2937)
     val subtextColor = if (isDarkTheme) Color(0xFF9CA3AF) else Color(0xFF6B7280)
-    val accentColor = if (isDarkTheme) Color(0xFF39FF14) else Color(0xFF4285F4)
+    val accentGreen = Color(0xFF39FF14)
 
-    // Load bookings on start and refresh every 5 seconds
     LaunchedEffect(Unit) {
         while (true) {
+            delay(10000) // Refresh every 10 seconds
+
             val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
             if (userId.isNotEmpty()) {
+                isLoading = true
+
                 val firebaseBookings = BookingManager.getUserBookings(userId)
                 val localHistory = BookingHistory.history
 
-                // Combine Firebase bookings with local history
                 val combinedMap = mutableMapOf<String, Booking>()
-
-                // Add Firebase bookings
-                firebaseBookings.forEach { booking ->
-                    combinedMap[booking.bookingId] = booking
-                }
-
-                // Add local history bookings (may override Firebase with cancelled status)
+                firebaseBookings.forEach { combinedMap[it.bookingId] = it }
                 localHistory.forEach { historyItem ->
-                    val booking = historyItem.booking
-                    // Update status based on local history
-                    val updatedBooking = booking.copy(
+                    val updatedBooking = historyItem.booking.copy(
                         status = when (historyItem.status) {
                             BookingStatus.ACTIVE -> "active"
                             BookingStatus.CANCELLED -> "cancelled"
                             BookingStatus.COMPLETED -> "completed"
                         }
                     )
-                    combinedMap[booking.bookingId] = updatedBooking
+                    combinedMap[historyItem.booking.bookingId] = updatedBooking
                 }
 
                 userBookings = combinedMap.values.toList().sortedByDescending { it.startTime }
+                isLoading = false
             }
-            isLoading = false
-            kotlinx.coroutines.delay(5000)
         }
     }
 
-    // Separate active and past bookings
+    // Load bookings ONCE on start
+    LaunchedEffect(Unit) {
+        android.util.Log.d("📋 BookingsHistory", "=== STARTING TO LOAD BOOKINGS ===")
+        isLoading = true
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        android.util.Log.d("📋 BookingsHistory", "User ID: $userId")
+
+        if (userId.isNotEmpty()) {
+            android.util.Log.d("📋 BookingsHistory", "Fetching from Firebase...")
+            val firebaseBookings = BookingManager.getUserBookings(userId)
+            android.util.Log.d("📋 BookingsHistory", "Firebase bookings: ${firebaseBookings.size}")
+            firebaseBookings.forEach {
+                android.util.Log.d("📋 BookingsHistory", "  - FB: ${it.bookingId} | ${it.locationName} | status: ${it.status}")
+            }
+
+            android.util.Log.d("📋 BookingsHistory", "Fetching from local history...")
+            val localHistory = BookingHistory.history
+            android.util.Log.d("📋 BookingsHistory", "Local history: ${localHistory.size}")
+            localHistory.forEach {
+                android.util.Log.d("📋 BookingsHistory", "  - Local: ${it.booking.bookingId} | ${it.booking.locationName} | status: ${it.status}")
+            }
+
+            val combinedMap = mutableMapOf<String, Booking>()
+            firebaseBookings.forEach { combinedMap[it.bookingId] = it }
+            localHistory.forEach { historyItem ->
+                val updatedBooking = historyItem.booking.copy(
+                    status = when (historyItem.status) {
+                        BookingStatus.ACTIVE -> "active"
+                        BookingStatus.CANCELLED -> "cancelled"
+                        BookingStatus.COMPLETED -> "completed"
+                    }
+                )
+                combinedMap[historyItem.booking.bookingId] = updatedBooking
+            }
+
+            userBookings = combinedMap.values.toList().sortedByDescending { it.startTime }
+            android.util.Log.d("📋 BookingsHistory", "Combined bookings: ${userBookings.size}")
+            userBookings.forEach {
+                android.util.Log.d("📋 BookingsHistory", "  - Combined: ${it.bookingId} | ${it.locationName} | status: ${it.status}")
+            }
+        } else {
+            android.util.Log.e("📋 BookingsHistory", "❌ User ID is empty!")
+        }
+        isLoading = false
+        android.util.Log.d("📋 BookingsHistory", "=== FINISHED LOADING ===")
+    }
+
     val currentTime = System.currentTimeMillis()
     val activeBookings = userBookings.filter {
         it.endTime > currentTime && it.status == "active"
     }
     val pastBookings = userBookings.filter {
-        it.endTime <= currentTime || it.status == "cancelled" || it.status == "expired" || it.status == "completed"
+        it.endTime <= currentTime || it.status in listOf("cancelled", "expired", "completed")
     }
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(backgroundColor)
             .statusBarsPadding()
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Top Bar
-            TopBar(
-                onBack = onBack,
-                onRefresh = {
+        // Top Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back",
+                        tint = textColor
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "My Bookings",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textColor
+                )
+            }
+
+            IconButton(
+                onClick = {
                     scope.launch {
                         isLoading = true
                         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
                         if (userId.isNotEmpty()) {
                             val firebaseBookings = BookingManager.getUserBookings(userId)
                             val localHistory = BookingHistory.history
-
                             val combinedMap = mutableMapOf<String, Booking>()
-                            firebaseBookings.forEach { booking ->
-                                combinedMap[booking.bookingId] = booking
-                            }
+                            firebaseBookings.forEach { combinedMap[it.bookingId] = it }
                             localHistory.forEach { historyItem ->
-                                val booking = historyItem.booking
-                                val updatedBooking = booking.copy(
+                                val updatedBooking = historyItem.booking.copy(
                                     status = when (historyItem.status) {
                                         BookingStatus.ACTIVE -> "active"
                                         BookingStatus.CANCELLED -> "cancelled"
                                         BookingStatus.COMPLETED -> "completed"
                                     }
                                 )
-                                combinedMap[booking.bookingId] = updatedBooking
+                                combinedMap[historyItem.booking.bookingId] = updatedBooking
                             }
                             userBookings = combinedMap.values.toList().sortedByDescending { it.startTime }
                         }
                         isLoading = false
                     }
                 },
-                cardColor = cardColor,
-                textColor = textColor
-            )
-
-            // Content
-            when {
-                isLoading -> LoadingContent(accentColor)
-                userBookings.isEmpty() -> EmptyContent(textColor, subtextColor)
-                else -> BookingsList(
-                    activeBookings = activeBookings,
-                    pastBookings = pastBookings,
-                    textColor = textColor,
-                    subtextColor = subtextColor,
-                    cardColor = cardColor,
-                    accentColor = accentColor,
-                    onCancelClick = { booking ->
-                        bookingToCancel = booking
-                        showCancelDialog = true
-                    }
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(cardColor)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Refresh",
+                    tint = textColor
                 )
+            }
+        }
+
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = accentGreen)
+                }
+            }
+            userBookings.isEmpty() -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.EventBusy,
+                            contentDescription = null,
+                            tint = subtextColor,
+                            modifier = Modifier.size(80.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "No Bookings Yet",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textColor
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Your parking history will appear here",
+                            fontSize = 14.sp,
+                            color = subtextColor
+                        )
+                    }
+                }
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    if (activeBookings.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "Active (${activeBookings.size})",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = textColor
+                            )
+                        }
+                        items(activeBookings.size) { index ->
+                            BookingCard(
+                                booking = activeBookings[index],
+                                isDarkTheme = isDarkTheme,
+                                cardColor = cardColor,
+                                textColor = textColor,
+                                subtextColor = subtextColor,
+                                accentGreen = accentGreen,
+                                onCancelClick = {
+                                    bookingToCancel = activeBookings[index]
+                                    showCancelDialog = true
+                                }
+                            )
+                        }
+                        item { Spacer(modifier = Modifier.height(8.dp)) }
+                    }
+
+                    if (pastBookings.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "Past (${pastBookings.size})",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = textColor
+                            )
+                        }
+                        items(pastBookings.size) { index ->
+                            BookingCard(
+                                booking = pastBookings[index],
+                                isDarkTheme = isDarkTheme,
+                                cardColor = cardColor,
+                                textColor = textColor,
+                                subtextColor = subtextColor,
+                                accentGreen = accentGreen,
+                                isPast = true
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 
-    // Cancel Confirmation Dialog
+    // Cancel Dialog
     if (showCancelDialog && bookingToCancel != null) {
-        CancelBookingDialog(
-            booking = bookingToCancel!!,
-            isCancelling = isCancelling,
-            cardColor = cardColor,
-            textColor = textColor,
-            subtextColor = subtextColor,
-            onDismiss = { showCancelDialog = false },
-            onConfirm = {
-                scope.launch {
-                    isCancelling = true
-                    val result = BookingManager.cancelBooking(bookingToCancel!!.bookingId)
-
-                    if (result.isSuccess) {
-                        // Update local history cache
-                        BookingHistory.cancelBooking(bookingToCancel!!.bookingId)
-
-                        // Refresh bookings list
-                        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-                        if (userId.isNotEmpty()) {
-                            val firebaseBookings = BookingManager.getUserBookings(userId)
-                            val localHistory = BookingHistory.history
-
-                            val combinedMap = mutableMapOf<String, Booking>()
-                            firebaseBookings.forEach { booking ->
-                                combinedMap[booking.bookingId] = booking
+        AlertDialog(
+            onDismissRequest = { showCancelDialog = false },
+            title = { Text("Cancel Booking?") },
+            text = { Text("Are you sure you want to cancel this booking? A refund will be processed.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            isCancelling = true
+                            val result = BookingManager.cancelBooking(bookingToCancel!!.bookingId)
+                            result.onSuccess {
+                                BookingHistory.addBooking(bookingToCancel!!, BookingStatus.CANCELLED)
+                                AlertsManager.showCancellationRefund(bookingToCancel!!)
+                                userBookings = userBookings.map {
+                                    if (it.bookingId == bookingToCancel!!.bookingId) {
+                                        it.copy(status = "cancelled")
+                                    } else it
+                                }
                             }
-                            localHistory.forEach { historyItem ->
-                                val booking = historyItem.booking
-                                val updatedBooking = booking.copy(
-                                    status = when (historyItem.status) {
-                                        BookingStatus.ACTIVE -> "active"
-                                        BookingStatus.CANCELLED -> "cancelled"
-                                        BookingStatus.COMPLETED -> "completed"
-                                    }
-                                )
-                                combinedMap[booking.bookingId] = updatedBooking
-                            }
-                            userBookings = combinedMap.values.toList().sortedByDescending { it.startTime }
+                            isCancelling = false
+                            showCancelDialog = false
+                            bookingToCancel = null
                         }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                    enabled = !isCancelling
+                ) {
+                    if (isCancelling) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Cancel Booking")
                     }
-
-                    isCancelling = false
-                    showCancelDialog = false
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelDialog = false }) {
+                    Text("Keep Booking")
                 }
             }
         )
@@ -207,180 +354,16 @@ fun BookingsHistoryScreen(
 }
 
 @Composable
-private fun TopBar(
-    onBack: () -> Unit,
-    onRefresh: () -> Unit,
-    cardColor: Color,
-    textColor: Color
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(20.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(
-            onClick = onBack,
-            modifier = Modifier
-                .background(cardColor, CircleShape)
-                .size(40.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.ArrowBack,
-                contentDescription = "Back",
-                tint = textColor
-            )
-        }
-
-        Text(
-            text = "My Bookings",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = textColor
-        )
-
-        IconButton(
-            onClick = onRefresh,
-            modifier = Modifier
-                .background(cardColor, CircleShape)
-                .size(40.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Refresh,
-                contentDescription = "Refresh",
-                tint = textColor
-            )
-        }
-    }
-}
-
-@Composable
-private fun LoadingContent(accentColor: Color) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        CircularProgressIndicator(color = accentColor)
-    }
-}
-
-@Composable
-private fun EmptyContent(textColor: Color, subtextColor: Color) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(32.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.EventBusy,
-                contentDescription = null,
-                tint = subtextColor,
-                modifier = Modifier.size(80.dp)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "No Bookings Yet",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = textColor
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Your parking history will appear here",
-                fontSize = 14.sp,
-                color = subtextColor,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-@Composable
-private fun BookingsList(
-    activeBookings: List<Booking>,
-    pastBookings: List<Booking>,
-    textColor: Color,
-    subtextColor: Color,
-    cardColor: Color,
-    accentColor: Color,
-    onCancelClick: (Booking) -> Unit
-) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Active Bookings Section
-        if (activeBookings.isNotEmpty()) {
-            item {
-                Text(
-                    text = "Active (${activeBookings.size})",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor
-                )
-            }
-            items(activeBookings.size) { index ->
-                BookingCard(
-                    booking = activeBookings[index],
-                    isActive = true,
-                    cardColor = cardColor,
-                    textColor = textColor,
-                    subtextColor = subtextColor,
-                    accentColor = accentColor,
-                    onCancel = { onCancelClick(activeBookings[index]) }
-                )
-            }
-            item { Spacer(modifier = Modifier.height(8.dp)) }
-        }
-
-        // Past Bookings Section
-        if (pastBookings.isNotEmpty()) {
-            item {
-                Text(
-                    text = "Past (${pastBookings.size})",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor
-                )
-            }
-            items(pastBookings.size) { index ->
-                BookingCard(
-                    booking = pastBookings[index],
-                    isActive = false,
-                    cardColor = cardColor,
-                    textColor = textColor,
-                    subtextColor = subtextColor,
-                    accentColor = subtextColor
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun BookingCard(
     booking: Booking,
-    isActive: Boolean,
+    isDarkTheme: Boolean,
     cardColor: Color,
     textColor: Color,
     subtextColor: Color,
-    accentColor: Color,
-    onCancel: () -> Unit = {}
+    accentGreen: Color,
+    isPast: Boolean = false,
+    onCancelClick: () -> Unit = {}
 ) {
-    val statusColor = when (booking.status) {
-        "active" -> Color(0xFF10B981)
-        "pending" -> Color(0xFFF59E0B)
-        "cancelled" -> Color(0xFFEF4444)
-        "expired" -> Color(0xFF6B7280)
-        "completed" -> Color(0xFF6B7280)
-        else -> subtextColor
-    }
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -392,22 +375,19 @@ private fun BookingCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Header: Location + Status
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.Garage,
                         contentDescription = null,
-                        tint = accentColor,
+                        tint = if (isPast) subtextColor else accentGreen,
                         modifier = Modifier.size(20.dp)
                     )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = booking.locationName,
                         fontSize = 16.sp,
@@ -418,13 +398,21 @@ private fun BookingCard(
 
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = statusColor.copy(alpha = 0.15f)
+                    color = when {
+                        booking.status == "cancelled" -> Color.Red.copy(alpha = 0.15f)
+                        isPast -> subtextColor.copy(alpha = 0.15f)
+                        else -> accentGreen.copy(alpha = 0.15f)
+                    }
                 ) {
                     Text(
                         text = booking.status.uppercase(),
-                        fontSize = 12.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = statusColor,
+                        color = when {
+                            booking.status == "cancelled" -> Color.Red
+                            isPast -> subtextColor
+                            else -> accentGreen
+                        },
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
@@ -432,220 +420,99 @@ private fun BookingCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Booking Details
-            BookingDetailRow(
-                icon = Icons.Default.LocationOn,
-                label = "Space",
-                value = booking.spaceLabel,
-                textColor = textColor,
-                subtextColor = subtextColor
-            )
+            // Space and Date
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                InfoRow(Icons.Default.LocationOn, "Space:", booking.spaceLabel, textColor, subtextColor)
+                InfoRow(Icons.Default.CalendarToday, "Date:", formatDate(booking.startTime), textColor, subtextColor)
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
-            BookingDetailRow(
-                icon = Icons.Default.CalendarToday,
-                label = "Date",
-                value = booking.startTime.formatDate(),
-                textColor = textColor,
-                subtextColor = subtextColor
-            )
+            // Time - Full width for better readability
+            InfoRow(Icons.Default.Schedule, "Time:", "${formatTime(booking.startTime)} - ${formatTime(booking.endTime)}", textColor, subtextColor)
+
             Spacer(modifier = Modifier.height(8.dp))
 
-            BookingDetailRow(
-                icon = Icons.Default.Schedule,
-                label = "Time",
-                value = "${booking.startTime.formatTime()} - ${booking.endTime.formatTime()}",
-                textColor = textColor,
-                subtextColor = subtextColor
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            BookingDetailRow(
-                icon = Icons.Default.Timer,
-                label = "Duration",
-                value = "${booking.totalHours} ${if (booking.totalHours == 1) "hour" else "hours"}",
-                textColor = textColor,
-                subtextColor = subtextColor
-            )
+            // Duration
+            InfoRow(Icons.Default.Timer, "Duration:", "${booking.totalHours}h", textColor, subtextColor)
 
             Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = subtextColor.copy(alpha = 0.2f))
-            Spacer(modifier = Modifier.height(12.dp))
 
-            // Footer: Price + Cancel Button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = "Total Amount",
-                        fontSize = 12.sp,
-                        color = subtextColor
-                    )
-                    Text(
-                        text = "Rs.${String.format("%.2f", booking.totalPrice)}",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textColor
-                    )
-                }
+                Text(
+                    text = "Total: Rs.${String.format("%.2f", booking.totalPrice)}",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isPast) subtextColor else accentGreen
+                )
 
-                if (isActive && booking.status == "active") {
-                    Button(
-                        onClick = onCancel,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFEF4444).copy(alpha = 0.15f),
-                            contentColor = Color(0xFFEF4444)
+                if (!isPast && booking.status == "active") {
+                    OutlinedButton(
+                        onClick = onCancelClick,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color.Red
                         ),
-                        shape = RoundedCornerShape(12.dp)
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.Red)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Cancel,
+                            imageVector = Icons.Default.Close,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Cancel",
-                            fontWeight = FontWeight.Bold
-                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Cancel", fontSize = 13.sp)
                     }
                 }
             }
-
-            // Booking ID
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "ID: ${booking.bookingId}",
-                fontSize = 10.sp,
-                color = subtextColor.copy(alpha = 0.6f),
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-            )
         }
     }
 }
 
 @Composable
-private fun BookingDetailRow(
+private fun InfoRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     value: String,
     textColor: Color,
     subtextColor: Color
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = subtextColor,
-            modifier = Modifier.size(16.dp)
+            modifier = Modifier.size(14.dp)
         )
+        Spacer(modifier = Modifier.width(4.dp))
         Text(
-            text = "$label:",
-            fontSize = 14.sp,
-            color = subtextColor,
-            modifier = Modifier.width(70.dp)
+            text = label,
+            fontSize = 11.sp,
+            color = subtextColor
         )
+        Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = value,
-            fontSize = 14.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = textColor
         )
     }
 }
 
-@Composable
-private fun CancelBookingDialog(
-    booking: Booking,
-    isCancelling: Boolean,
-    cardColor: Color,
-    textColor: Color,
-    subtextColor: Color,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = cardColor,
-        title = {
-            Text(
-                text = "Cancel Booking?",
-                fontWeight = FontWeight.Bold,
-                color = textColor
-            )
-        },
-        text = {
-            Column {
-                Text(
-                    text = "Are you sure you want to cancel this booking?",
-                    color = textColor
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "Location: ${booking.locationName}",
-                    fontSize = 14.sp,
-                    color = subtextColor
-                )
-                Text(
-                    text = "Space: ${booking.spaceLabel}",
-                    fontSize = 14.sp,
-                    color = subtextColor
-                )
-                Text(
-                    text = "Amount: Rs.${String.format("%.2f", booking.totalPrice)}",
-                    fontSize = 14.sp,
-                    color = subtextColor
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                enabled = !isCancelling,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFEF4444)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                if (isCancelling) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text(
-                        text = "Cancel Booking",
-                        color = Color.White
-                    )
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                enabled = !isCancelling
-            ) {
-                Text(
-                    text = "Keep Booking",
-                    color = textColor
-                )
-            }
-        }
-    )
+private fun formatDate(timeMillis: Long): String {
+    val format = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+    return format.format(Date(timeMillis))
 }
 
-// Extension functions for date/time formatting
-private fun Long.formatDate(): String {
-    return SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(this))
-}
-
-private fun Long.formatTime(): String {
-    return SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(this))
+private fun formatTime(timeMillis: Long): String {
+    val format = SimpleDateFormat("h:mm a", Locale.getDefault())
+    return format.format(Date(timeMillis))
 }

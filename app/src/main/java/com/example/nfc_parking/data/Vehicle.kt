@@ -1,10 +1,11 @@
-package com.example.nfc_parking.ui.vehicles
+package com.example.nfc_parking.data
 
 import androidx.compose.runtime.mutableStateListOf
+import com.example.nfc_parking.ui.vehicles.Vehicle
+import com.example.nfc_parking.ui.vehicles.VehicleType
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
-
 
 data class Vehicle(
     val id: String = "",
@@ -131,7 +132,7 @@ object VehicleManager {
      */
     suspend fun setDefaultVehicle(vehicleId: String): Result<Unit> {
         return try {
-            FirebaseAuth.getInstance().currentUser?.uid
+            val userId = FirebaseAuth.getInstance().currentUser?.uid
                 ?: return Result.failure(Exception("User not authenticated"))
 
             // Remove default from all vehicles
@@ -158,5 +159,12 @@ object VehicleManager {
             android.util.Log.e("VehicleManager", "Failed to set default: ${e.message}", e)
             Result.failure(e)
         }
+    }
+
+    /**
+     * Get default vehicle
+     */
+    fun getDefaultVehicle(): Vehicle? {
+        return vehicles.firstOrNull { it.isDefault }
     }
 }

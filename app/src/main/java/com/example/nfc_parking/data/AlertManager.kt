@@ -1,9 +1,9 @@
 package com.example.nfc_parking.data
 
+import android.content.Context
+import android.content.Intent
 import androidx.compose.runtime.mutableStateListOf
-import com.example.nfc_parking.data.Booking           // ✅ Import Booking
-import com.example.nfc_parking.data.BookingHistory    // ✅ Import BookingHistory
-import com.example.nfc_parking.data.BookingStatus     // ✅ Import BookingStatus
+import com.example.nfc_parking.receivers.ParkingAlertBroadcastReceiver
 import kotlinx.coroutines.*
 import java.util.*
 
@@ -26,7 +26,7 @@ enum class AlertUrgency {
     HIGH, MEDIUM, LOW
 }
 
-object AlertManager {
+object AlertsManager {
     // Observable list of alerts that triggers recomposition
     private val _alerts = mutableStateListOf<Alert>()
     val alerts: List<Alert> get() = _alerts.toList()
@@ -34,6 +34,16 @@ object AlertManager {
     // Keep track of active monitoring jobs
     private val monitoringJobs = mutableMapOf<String, Job>()
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
+    // Context for sending broadcasts
+    private var appContext: Context? = null
+
+    /**
+     * Initialize with application context
+     */
+    fun initialize(context: Context) {
+        appContext = context.applicationContext
+    }
 
     /**
      * Add a new alert
@@ -53,6 +63,13 @@ object AlertManager {
     }
 
     /**
+     * Remove an alert by ID (alias for dismissAlert)
+     */
+    fun removeAlert(alertId: String) {
+        dismissAlert(alertId)
+    }
+
+    /**
      * Clear all alerts
      */
     fun clearAllAlerts() {
@@ -60,7 +77,14 @@ object AlertManager {
     }
 
     /**
-     * Show booking confirmation alert
+     * Clear all alerts (alias for clearAllAlerts)
+     */
+    fun clearAll() {
+        clearAllAlerts()
+    }
+
+    /**
+     * Show booking confirmation alert + Send Broadcast
      */
     fun showBookingConfirmation(booking: Booking) {
         val alert = Alert(
@@ -77,18 +101,29 @@ object AlertManager {
         )
         addAlert(alert)
 
+        // 📡 SEND BROADCAST
+        sendBroadcast(
+            ParkingAlertBroadcastReceiver.ACTION_BOOKING_CONFIRMED,
+            booking.locationName,
+            booking.spaceLabel,
+            "",
+            booking.totalPrice.toString(),
+            booking.bookingId,
+            "LOW"
+        )
+
         // Start monitoring this booking for time warnings
         startMonitoringBooking(booking)
     }
 
     /**
-     * Show cancellation and refund alert
+     * Show cancellation and refund alert + Send Broadcast
      */
     fun showCancellationRefund(booking: Booking) {
         val alert = Alert(
             id = "refund_${booking.bookingId}_${System.currentTimeMillis()}",
             title = "Booking Cancelled - Refund Processed",
-            message = "Your booking has been cancelled. Amount of $${String.format("%.2f", booking.totalPrice)} has been refunded.",
+            message = "Your booking has been cancelled. Amount of Rs.${String.format("%.2f", booking.totalPrice)} has been refunded.",
             location = booking.locationName,
             spotNumber = booking.spaceLabel,
             timeRemaining = "Cancelled",
@@ -98,6 +133,17 @@ object AlertManager {
             amount = booking.totalPrice
         )
         addAlert(alert)
+
+        // 📡 SEND BROADCAST
+        sendBroadcast(
+            ParkingAlertBroadcastReceiver.ACTION_BOOKING_CANCELLED,
+            booking.locationName,
+            booking.spaceLabel,
+            "",
+            booking.totalPrice.toString(),
+            booking.bookingId,
+            "MEDIUM"
+        )
 
         // Stop monitoring this booking
         stopMonitoringBooking(booking.bookingId)
@@ -152,7 +198,7 @@ object AlertManager {
     }
 
     /**
-     * Show parking expiring soon alert
+     * Show parking expiring soon alert + Send Broadcast
      */
     private fun showParkingExpiringSoon(booking: Booking, timeRemaining: Long, urgency: AlertUrgency) {
         val minutes = (timeRemaining / (60 * 1000)).toInt()
@@ -173,10 +219,21 @@ object AlertManager {
             amount = booking.totalPrice
         )
         addAlert(alert)
+
+        // 📡 SEND BROADCAST
+        sendBroadcast(
+            ParkingAlertBroadcastReceiver.ACTION_PARKING_EXPIRING_SOON,
+            booking.locationName,
+            booking.spaceLabel,
+            "$minutes min",
+            booking.totalPrice.toString(),
+            booking.bookingId,
+            urgency.name
+        )
     }
 
     /**
-     * Show parking expired alert
+     * Show parking expired alert + Send Broadcast
      */
     private fun showParkingExpired(booking: Booking) {
         // Remove any previous alerts for this booking
@@ -195,6 +252,43 @@ object AlertManager {
             amount = booking.totalPrice
         )
         addAlert(alert)
+
+        // 📡 SEND BROADCAST
+        sendBroadcast(
+            ParkingAlertBroadcastReceiver.ACTION_PARKING_EXPIRED,
+            booking.locationName,
+            booking.spaceLabel,
+            "Expired",
+            booking.totalPrice.toString(),
+            booking.bookingId,
+            "HIGH"
+        )
+    }
+
+    /**
+     * Send Broadcast to ParkingAlertBroadcastReceiver
+     */
+    private fun sendBroadcast(
+        action: String,
+        locationName: String,
+        spaceLabel: String,
+        timeRemaining: String,
+        amount: String,
+        bookingId: String,
+        urgency: String
+    ) {
+        appContext?.let { context ->
+            val intent = Intent(context, ParkingAlertBroadcastReceiver::class.java).apply {
+                this.action = action
+                putExtra(ParkingAlertBroadcastReceiver.EXTRA_LOCATION_NAME, locationName)
+                putExtra(ParkingAlertBroadcastReceiver.EXTRA_SPACE_LABEL, spaceLabel)
+                putExtra(ParkingAlertBroadcastReceiver.EXTRA_TIME_REMAINING, timeRemaining)
+                putExtra(ParkingAlertBroadcastReceiver.EXTRA_AMOUNT, amount)
+                putExtra(ParkingAlertBroadcastReceiver.EXTRA_BOOKING_ID, bookingId)
+                putExtra(ParkingAlertBroadcastReceiver.EXTRA_URGENCY, urgency)
+            }
+            context.sendBroadcast(intent)
+        }
     }
 
     /**

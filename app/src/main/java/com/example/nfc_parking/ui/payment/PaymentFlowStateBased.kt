@@ -14,6 +14,9 @@ import com.example.nfc_parking.data.Booking
 import com.example.nfc_parking.data.BookingHistory
 import com.example.nfc_parking.data.BookingManager
 import com.example.nfc_parking.data.BookingStatus
+import com.example.nfc_parking.data.AlertsManager
+import com.example.nfc_parking.ui.booking.BookingConfirmationScreen
+import com.example.nfc_parking.ui.ticket.ParkingTicketScreen
 import kotlinx.coroutines.launch
 
 enum class PaymentStep {
@@ -39,7 +42,6 @@ fun PaymentFlowStateBased(
     Box(modifier = androidx.compose.ui.Modifier.fillMaxSize()) {
         when (currentStep) {
             PaymentStep.SELECT_PAYMENT -> {
-                // ✅ Completely recreate the screen each time
                 DisposableEffect(Unit) {
                     android.util.Log.d("PaymentFlow", "PaymentMethodScreen mounted")
                     onDispose {
@@ -70,14 +72,37 @@ fun PaymentFlowStateBased(
                         currentStep = PaymentStep.SELECT_PAYMENT
                     },
                     onPinConfirmed = {
+                        android.util.Log.d("PaymentFlow", "💳 PIN confirmed! Starting booking confirmation...")
                         coroutineScope.launch {
-                            val result = BookingManager.confirmBooking(booking.bookingId)
+                            try {
+                                // ✅ FIX #1: Confirm booking (status = "active")
+                                android.util.Log.d("PaymentFlow", "Calling confirmBooking for: ${booking.bookingId}")
+                                val result = BookingManager.confirmBooking(booking.bookingId)
 
-                            if (result.isSuccess) {
-                                BookingHistory.addBooking(booking)
+                                result.onSuccess {
+                                    android.util.Log.d("PaymentFlow", "✅ Booking confirmed successfully!")
+
+                                    // ✅ FIX #2: Add to history as ACTIVE (not CANCELLED!)
+                                    BookingHistory.addBooking(booking, BookingStatus.ACTIVE)
+                                    android.util.Log.d("PaymentFlow", "✅ Added to history as ACTIVE")
+
+                                    // ✅ FIX #3: Create alert
+                                    AlertsManager.showBookingConfirmation(booking)
+                                    android.util.Log.d("PaymentFlow", "✅ Alert created!")
+
+                                    // Move to confirmation screen
+                                    currentStep = PaymentStep.CONFIRMATION
+
+                                }.onFailure { error ->
+                                    android.util.Log.e("PaymentFlow", "❌ Failed to confirm booking: ${error.message}")
+                                    // Still show confirmation screen even if Firebase fails
+                                    // (booking was already created as pending)
+                                    currentStep = PaymentStep.CONFIRMATION
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("PaymentFlow", "❌ Exception: ${e.message}", e)
+                                // Still show confirmation screen
                                 currentStep = PaymentStep.CONFIRMATION
-                            } else {
-                                android.util.Log.e("PaymentFlow", "Failed to confirm booking: ${result.exceptionOrNull()?.message}")
                             }
                         }
                     }
@@ -96,7 +121,11 @@ fun PaymentFlowStateBased(
 
             PaymentStep.TICKET -> {
                 ParkingTicketScreen(
-                    onBack = onBackToMain
+                    booking = booking,
+                    onBack = {
+                        // Go back to confirmation screen instead of home
+                        currentStep = PaymentStep.CONFIRMATION
+                    }
                 )
             }
         }

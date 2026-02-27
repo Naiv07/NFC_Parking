@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nfc_parking.data.UserPreferencesManager
 import com.google.firebase.auth.FirebaseAuth
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class ProfileViewModel : ViewModel() {
@@ -16,11 +15,14 @@ class ProfileViewModel : ViewModel() {
     val userEmail = mutableStateOf("")
     val userId = mutableStateOf("")
 
-    // Load user data from preferences
+    /**
+     * Load user data from preferences
+     */
     fun loadUserData(preferencesManager: UserPreferencesManager) {
         viewModelScope.launch {
-            userEmail.value = preferencesManager.userEmail.first()
-            userId.value = preferencesManager.userId.first()
+            // Get email and userId from UserPreferencesManager
+            userEmail.value = preferencesManager.getUserEmail() ?: ""
+            userId.value = preferencesManager.getUserId() ?: ""
 
             // Get display name from Firebase Auth if available
             auth.currentUser?.let { user ->
@@ -31,7 +33,9 @@ class ProfileViewModel : ViewModel() {
         }
     }
 
-    // Extract name from email (e.g., "esther84@gmail.com" -> "Esther Howard")
+    /**
+     * Extract name from email (e.g., "esther84@gmail.com" -> "Esther Howard")
+     */
     private fun extractNameFromEmail(email: String): String {
         if (email.isEmpty()) return "User"
 
@@ -46,7 +50,9 @@ class ProfileViewModel : ViewModel() {
         }
     }
 
-    // Logout function
+    /**
+     * Logout function
+     */
     fun logout(preferencesManager: UserPreferencesManager, onLogoutSuccess: () -> Unit) {
         viewModelScope.launch {
             // Sign out from Firebase

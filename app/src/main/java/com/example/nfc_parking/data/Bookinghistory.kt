@@ -1,122 +1,78 @@
 package com.example.nfc_parking.data
 
-import android.content.Context
-import android.content.SharedPreferences
 import androidx.compose.runtime.mutableStateListOf
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 
+/**
+ * Booking status enum
+ */
 enum class BookingStatus {
-    ACTIVE, COMPLETED, CANCELLED
+    ACTIVE,
+    COMPLETED,
+    CANCELLED
 }
 
+/**
+ * Booking history item
+ */
 data class BookingHistoryItem(
     val booking: Booking,
-    val status: BookingStatus
+    val status: BookingStatus,
+    val timestamp: Long = System.currentTimeMillis()
 )
 
+/**
+ * Singleton to manage booking history
+ */
 object BookingHistory {
     private val _history = mutableStateListOf<BookingHistoryItem>()
     val history: List<BookingHistoryItem> get() = _history.toList()
 
-    private var preferences: SharedPreferences? = null
-    private val gson = Gson()
-
     /**
-     * Initialize with context - MUST BE CALLED FROM MainActivity
+     * Add a booking to history
      */
-    fun initialize(context: Context) {
-        preferences = context.getSharedPreferences("booking_history", Context.MODE_PRIVATE)
-        loadFromPreferences()
-    }
+    fun addBooking(booking: Booking, status: BookingStatus) {
+        // Check if booking already exists
+        val existingIndex = _history.indexOfFirst { it.booking.bookingId == booking.bookingId }
 
-    /**
-     * Load saved bookings from SharedPreferences
-     */
-    private fun loadFromPreferences() {
-        val json = preferences?.getString("history", null) ?: return
-        try {
-            val type = object : TypeToken<List<BookingHistoryItem>>() {}.type
-            val savedHistory: List<BookingHistoryItem> = gson.fromJson(json, type)
-            _history.clear()
-            _history.addAll(savedHistory)
-        } catch (e: Exception) {
-            e.printStackTrace()
+        if (existingIndex != -1) {
+            // Update existing booking
+            _history[existingIndex] = BookingHistoryItem(booking, status)
+        } else {
+            // Add new booking
+            _history.add(BookingHistoryItem(booking, status))
         }
     }
 
     /**
-     * Save to SharedPreferences
+     * Get all bookings with a specific status
      */
-    private fun saveToPreferences() {
-        val json = gson.toJson(_history.toList())
-        preferences?.edit()?.putString("history", json)?.apply()
+    fun getBookingsByStatus(status: BookingStatus): List<BookingHistoryItem> {
+        return _history.filter { it.status == status }
     }
 
     /**
-     * Add a new booking
+     * Get a specific booking by ID
      */
-    fun addBooking(booking: Booking) {
-        val historyItem = BookingHistoryItem(
-            booking = booking,
-            status = BookingStatus.ACTIVE
-        )
-        _history.add(0, historyItem) // Add to top of list
-        saveToPreferences()
-
-        // ✅ TRIGGER BOOKING CONFIRMATION ALERT
-        AlertManager.showBookingConfirmation(booking)
+    fun getBookingById(bookingId: String): BookingHistoryItem? {
+        return _history.find { it.booking.bookingId == bookingId }
     }
 
     /**
-     * Cancel a booking by ID
+     * Update booking status
      */
-    fun cancelBooking(bookingId: String) {
-        val index = _history.indexOfFirst {
-            it.booking.bookingId == bookingId && it.status == BookingStatus.ACTIVE
-        }
-
+    fun updateBookingStatus(bookingId: String, newStatus: BookingStatus) {
+        val index = _history.indexOfFirst { it.booking.bookingId == bookingId }
         if (index != -1) {
-            val bookingItem = _history[index]
-
-            // ✅ TRIGGER REFUND ALERT BEFORE CANCELLING
-            AlertManager.showCancellationRefund(bookingItem.booking)
-
-            // Update status to cancelled
-            _history[index] = bookingItem.copy(status = BookingStatus.CANCELLED)
-            saveToPreferences()
+            val item = _history[index]
+            _history[index] = item.copy(status = newStatus)
         }
     }
 
     /**
-     * Mark a booking as completed
+     * Remove a booking from history
      */
-    fun completeBooking(bookingId: String) {
-        val index = _history.indexOfFirst {
-            it.booking.bookingId == bookingId && it.status == BookingStatus.ACTIVE
-        }
-
-        if (index != -1) {
-            val bookingItem = _history[index]
-            _history[index] = bookingItem.copy(status = BookingStatus.COMPLETED)
-            saveToPreferences()
-        }
-    }
-
-    /**
-     * Get active bookings
-     */
-    fun getActiveBookings(): List<BookingHistoryItem> {
-        return _history.filter { it.status == BookingStatus.ACTIVE }
-    }
-
-    /**
-     * Get past bookings (completed or cancelled)
-     */
-    fun getPastBookings(): List<BookingHistoryItem> {
-        return _history.filter {
-            it.status == BookingStatus.COMPLETED || it.status == BookingStatus.CANCELLED
-        }
+    fun removeBooking(bookingId: String) {
+        _history.removeAll { it.booking.bookingId == bookingId }
     }
 
     /**
@@ -124,6 +80,26 @@ object BookingHistory {
      */
     fun clearHistory() {
         _history.clear()
-        saveToPreferences()
+    }
+
+    /**
+     * Get active bookings count
+     */
+    fun getActiveBookingsCount(): Int {
+        return _history.count { it.status == BookingStatus.ACTIVE }
+    }
+
+    /**
+     * Get completed bookings count
+     */
+    fun getCompletedBookingsCount(): Int {
+        return _history.count { it.status == BookingStatus.COMPLETED }
+    }
+
+    /**
+     * Get cancelled bookings count
+     */
+    fun getCancelledBookingsCount(): Int {
+        return _history.count { it.status == BookingStatus.CANCELLED }
     }
 }

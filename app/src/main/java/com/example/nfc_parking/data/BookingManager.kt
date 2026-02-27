@@ -3,6 +3,7 @@ package com.example.nfc_parking.data
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
+import androidx.room.util.copy
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.tasks.await
@@ -174,6 +175,88 @@ object BookingManager : DefaultLifecycleObserver {
             val errorMessage = "Reservation failed: ${e.message}"
             android.util.Log.e("BookingManager", errorMessage, e)
             BookingResult.Error(errorMessage, e)
+        }
+    }
+
+    /**
+     * Get number of active bookings for a location
+     */
+    suspend fun getActiveBookingsCount(locationId: String): Int {
+        return try {
+            val currentTime = System.currentTimeMillis()
+            val snapshot = bookingsCollection
+                .whereEqualTo("locationId", locationId)
+                .whereEqualTo("status", "active")
+                .get()
+                .await()
+
+            // Count only non-expired bookings
+            val activeCount = snapshot.documents.mapNotNull { doc ->
+                doc.toObject(Booking::class.java)
+            }.count { booking ->
+                booking.endTime > currentTime
+            }
+
+            android.util.Log.d("BookingManager", "Location $locationId has $activeCount active bookings")
+            activeCount
+        } catch (e: Exception) {
+            android.util.Log.e("BookingManager", "Failed to get active bookings: ${e.message}", e)
+            0
+        }
+    }
+
+    /**
+     * Calculate available spots for a location
+     */
+    suspend fun getAvailableSpots(locationId: String, totalSpots: Int): Int {
+        val activeBookings = getActiveBookingsCount(locationId)
+        val available = maxOf(0, totalSpots - activeBookings)
+        android.util.Log.d("BookingManager", "Location $locationId: $available/$totalSpots available")
+        return available
+    }
+
+    /**
+     * Extend a booking by additional hours
+     */
+    suspend fun extendBooking(bookingId: String, additionalHours: Int): Result<Booking> {
+        return try {
+            android.util.Log.d("BookingManager", "Extending booking $bookingId by $additionalHours hours")
+
+            // Get current booking using the EXISTING getBooking method
+            val currentBooking = getBooking(bookingId)
+                ?: return Result.failure(Exception("Booking not found"))
+
+            // Calculate new values
+            val newEndTime = currentBooking.endTime + (additionalHours * 60 * 60 * 1000L)
+            val additionalCost = currentBooking.pricePerHour * additionalHours
+            val newTotalPrice = currentBooking.totalPrice + additionalCost
+            val newTotalHours = currentBooking.totalHours + additionalHours
+
+            // Update in Firebase
+            bookingsCollection.document(bookingId)
+                .update(mapOf(
+                    "endTime" to newEndTime,
+                    "totalHours" to newTotalHours,
+                    "totalPrice" to newTotalPrice
+                ))
+                .await()
+
+            // Create updated booking object
+            val updatedBooking = currentBooking.copy(
+                endTime = newEndTime,
+                totalHours = newTotalHours,
+                totalPrice = newTotalPrice
+            )
+
+            android.util.Log.d("BookingManager", "✅ Booking extended successfully!")
+            android.util.Log.d("BookingManager", "New end time: ${java.text.SimpleDateFormat("HH:mm").format(newEndTime)}")
+            android.util.Log.d("BookingManager", "New total: Rs.$newTotalPrice")
+
+            Result.success(updatedBooking)
+
+        } catch (e: Exception) {
+            android.util.Log.e("BookingManager", "Failed to extend booking: ${e.message}", e)
+            Result.failure(e)
         }
     }
 

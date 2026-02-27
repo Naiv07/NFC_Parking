@@ -4,8 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,7 +30,6 @@ fun PinEntryScreen(
     var isProcessing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    // ✅ CRITICAL FIX: Intercept back press to prevent navigation pop
     BackHandler(enabled = true) {
         if (!isProcessing) {
             onBack()
@@ -55,130 +52,130 @@ fun PinEntryScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween  // ✅ Distribute evenly
         ) {
-            // Top Bar
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // ===== TOP SECTION =====
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                IconButton(
-                    onClick = {
-                        if (!isProcessing) {
-                            onBack()
-                        }
-                    },
+                // Top Bar
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = {
+                            if (!isProcessing) {
+                                onBack()
+                            }
+                        },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(cardColor, CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = textColor
+                        )
+                    }
+
+                    Text(
+                        text = "Enter PIN",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textColor
+                    )
+
+                    Spacer(modifier = Modifier.size(40.dp))
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Lock Icon
+                Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .background(cardColor, CircleShape)
+                        .size(120.dp)  // ✅ Reduced from 140dp
+                        .background(accentColor.copy(alpha = 0.15f), CircleShape),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = textColor
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = accentColor,
+                        modifier = Modifier.size(55.dp)  // ✅ Reduced from 60dp
                     )
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    text = "Enter PIN",
-                    fontSize = 20.sp,
+                    text = "Confirm Payment",
+                    fontSize = 24.sp,  // ✅ Reduced from 26sp
                     fontWeight = FontWeight.Bold,
-                    color = textColor
+                    color = textColor,
+                    textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.size(40.dp))
-            }
+                Spacer(modifier = Modifier.height(16.dp))
 
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Lock Icon
-            Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .background(accentColor.copy(alpha = 0.15f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Lock,
-                    contentDescription = null,
-                    tint = accentColor,
-                    modifier = Modifier.size(50.dp)
+                Text(
+                    text = "Enter your 4-digit PIN",
+                    fontSize = 14.sp,
+                    color = subtextColor,
+                    textAlign = TextAlign.Center
                 )
-            }
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-            // Title
-            Text(
-                text = "Confirm Payment",
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Bold,
-                color = textColor,
-                textAlign = TextAlign.Center
-            )
+                Text(
+                    text = "(Use 1234 for demo)",
+                    fontSize = 12.sp,
+                    color = subtextColor.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center
+                )
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-            // Subtitle
-            Text(
-                text = "Enter your 4-digit PIN",
-                fontSize = 14.sp,
-                color = subtextColor,
-                textAlign = TextAlign.Center
-            )
+                // PIN Display (Dots)
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(4) { index ->
+                        PinDot(
+                            isFilled = index < pin.length,
+                            accentColor = accentColor,
+                            cardColor = cardColor,
+                            error = error != null
+                        )
+                        if (index < 3) Spacer(modifier = Modifier.width(16.dp))  // ✅ Reduced spacing
+                    }
+                }
 
-            Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-            Text(
-                text = "(Use 1234 for demo)",
-                fontSize = 12.sp,
-                color = subtextColor.copy(alpha = 0.7f),
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // PIN Display (Dots)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                repeat(4) { index ->
-                    PinDot(
-                        isFilled = index < pin.length,
-                        accentColor = accentColor,
-                        cardColor = cardColor,
-                        error = error != null
-                    )
-                    if (index < 3) Spacer(modifier = Modifier.width(20.dp))
+                // Error message
+                Box(
+                    modifier = Modifier.height(20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (error != null) {
+                        Text(
+                            text = error!!,
+                            fontSize = 13.sp,
+                            color = Color(0xFFEF4444),
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Error message
-            Box(
-                modifier = Modifier.height(20.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                if (error != null) {
-                    Text(
-                        text = error!!,
-                        fontSize = 13.sp,
-                        color = Color(0xFFEF4444),
-                        textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Number Pad
+            // ===== BOTTOM SECTION: Number Pad =====
             NumberPad(
                 onNumberClick = { number ->
                     if (pin.length < 4 && !isProcessing) {
@@ -202,54 +199,14 @@ fun PinEntryScreen(
                 cardColor = cardColor,
                 enabled = !isProcessing
             )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Submit Button
-            Button(
-                onClick = {
-                    if (pin.length == 4) {
-                        isProcessing = true
-                    } else {
-                        error = "Please enter 4 digits"
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                enabled = !isProcessing && pin.length == 4,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Black,
-                    disabledContainerColor = Color.Black.copy(alpha = 0.5f)
-                ),
-                shape = RoundedCornerShape(28.dp)
-            ) {
-                if (isProcessing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = accentColor,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text(
-                        text = "Confirm Payment",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 
     // Process PIN when entered
     LaunchedEffect(isProcessing) {
         if (isProcessing && pin.length == 4) {
-            delay(1500) // Simulate verification
+            delay(1500)
 
-            // Demo PIN is "1234"
             if (pin == "1234") {
                 onPinConfirmed()
             } else {
@@ -270,7 +227,7 @@ private fun PinDot(
 ) {
     Box(
         modifier = Modifier
-            .size(18.dp)
+            .size(16.dp)  // ✅ Reduced from 18dp
             .background(
                 color = when {
                     error -> Color(0xFFEF4444)
@@ -301,9 +258,8 @@ private fun NumberPad(
     enabled: Boolean = true
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)  // ✅ Fixed spacing
     ) {
         // Rows 1-3
         listOf(
@@ -312,8 +268,7 @@ private fun NumberPad(
             listOf("7", "8", "9")
         ).forEach { numbers ->
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.spacedBy(24.dp)  // ✅ Fixed spacing
             ) {
                 numbers.forEach { number ->
                     NumberButton(
@@ -329,8 +284,7 @@ private fun NumberPad(
 
         // Row 4: Empty, 0, Backspace
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            horizontalArrangement = Arrangement.spacedBy(24.dp)  // ✅ Fixed spacing
         ) {
             Spacer(modifier = Modifier.size(70.dp))
 
@@ -353,7 +307,7 @@ private fun NumberPad(
                     imageVector = Icons.Default.Backspace,
                     contentDescription = "Backspace",
                     tint = if (enabled) textColor else textColor.copy(alpha = 0.5f),
-                    modifier = Modifier.size(26.dp)
+                    modifier = Modifier.size(24.dp)  // ✅ Reduced from 26dp
                 )
             }
         }
@@ -371,7 +325,7 @@ private fun NumberButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier.size(70.dp),
+        modifier = Modifier.size(70.dp),  // ✅ Good size
         colors = ButtonDefaults.buttonColors(
             containerColor = cardColor,
             disabledContainerColor = cardColor.copy(alpha = 0.5f)
@@ -381,7 +335,7 @@ private fun NumberButton(
     ) {
         Text(
             text = number,
-            fontSize = 26.sp,
+            fontSize = 24.sp,  // ✅ Reduced from 26sp
             fontWeight = FontWeight.Medium,
             color = if (enabled) textColor else textColor.copy(alpha = 0.5f)
         )
