@@ -34,15 +34,8 @@ class AuthViewModel : ViewModel() {
      */
     fun initializeGoogleSignIn(context: Context) {
         try {
-            // TEMPORARY: Use a placeholder or your actual Web Client ID
-            val webClientId = "YOUR_WEB_CLIENT_ID_HERE"
-
-            // Skip if not configured
-            if (webClientId == "YOUR_WEB_CLIENT_ID_HERE") {
-                android.util.Log.w("AuthViewModel", "Google Sign-In not configured - using email/password only")
-                googleSignInEnabled = false
-                return
-            }
+            // Web Client ID from google-services.json (client_type: 3)
+            val webClientId = "535901221192-bu5g51cms1duhhf6pqq12h5aes8g9194.apps.googleusercontent.com"
 
             val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestIdToken(webClientId)
@@ -102,21 +95,45 @@ class AuthViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             try {
+                android.util.Log.d("AuthViewModel", "handleGoogleSignInResult called")
+
                 if (!googleSignInEnabled) {
+                    android.util.Log.e("AuthViewModel", "Google Sign-In not enabled")
                     isLoading.value = false
                     errorMessage.value = "Google Sign-In not available"
                     return@launch
                 }
 
+                if (data == null) {
+                    android.util.Log.e("AuthViewModel", "Intent data is null")
+                    isLoading.value = false
+                    errorMessage.value = "Sign-in was cancelled"
+                    return@launch
+                }
+
                 val task = GoogleSignIn.getSignedInAccountFromIntent(data)
+                android.util.Log.d("AuthViewModel", "Getting account from intent...")
+
                 val account = task.getResult(ApiException::class.java)
+                android.util.Log.d("AuthViewModel", "Account retrieved: ${account?.email}")
 
                 if (account != null) {
+                    if (account.idToken == null) {
+                        android.util.Log.e("AuthViewModel", "ID Token is null - check SHA-1 certificate in Firebase Console")
+                        isLoading.value = false
+                        errorMessage.value = "Authentication failed. Please check app configuration."
+                        return@launch
+                    }
+
+                    android.util.Log.d("AuthViewModel", "Creating Firebase credential...")
                     val credential = GoogleAuthProvider.getCredential(account.idToken, null)
+
+                    android.util.Log.d("AuthViewModel", "Signing in with Firebase...")
                     val result = auth.signInWithCredential(credential).await()
                     val user = result.user
 
                     if (user != null) {
+                        android.util.Log.d("AuthViewModel", "Firebase sign-in successful: ${user.email}")
                         preferencesManager.saveLoginState(true)
                         preferencesManager.setUserId(user.uid)
                         preferencesManager.setUserEmail(user.email ?: "")
@@ -125,17 +142,28 @@ class AuthViewModel : ViewModel() {
                         isLoading.value = false
                         errorMessage.value = ""
                         onSuccess()
+                    } else {
+                        android.util.Log.e("AuthViewModel", "Firebase user is null after sign-in")
+                        isLoading.value = false
+                        errorMessage.value = "Authentication failed"
                     }
                 } else {
+                    android.util.Log.e("AuthViewModel", "Google account is null")
                     isLoading.value = false
-                    errorMessage.value = "Google Sign-In failed"
+                    errorMessage.value = "Failed to get account information"
                 }
             } catch (e: ApiException) {
-                android.util.Log.e("AuthViewModel", "Google sign in failed", e)
+                val errorCode = e.statusCode
+                android.util.Log.e("AuthViewModel", "Google sign in failed with status code: $errorCode", e)
                 isLoading.value = false
-                errorMessage.value = "Google Sign-In error: ${e.statusCode}"
+                errorMessage.value = when (errorCode) {
+                    10 -> "Developer error: Check SHA-1 certificate in Firebase Console"
+                    12500 -> "Sign-in cancelled"
+                    12501 -> "Sign-in attempt cancelled"
+                    else -> "Google Sign-In error: $errorCode"
+                }
             } catch (e: Exception) {
-                android.util.Log.e("AuthViewModel", "Auth error", e)
+                android.util.Log.e("AuthViewModel", "Auth error: ${e.message}", e)
                 isLoading.value = false
                 errorMessage.value = e.message ?: "Unknown error"
             }
