@@ -55,7 +55,9 @@ fun AppNavGraph(
         composable(NavRoutes.PERMISSIONS) {
             PermissionScreen(
                 onAllPermissionsGranted = {
-                    navController.navigate(NavRoutes.AUTH) {  // ← Goes to Auth
+                    // ✅ Save that permissions are done so we skip this screen on next launch
+                    preferencesManager.setPermissionsCompleted(true)
+                    navController.navigate(NavRoutes.AUTH) {
                         popUpTo(NavRoutes.PERMISSIONS) { inclusive = true }
                     }
                 }

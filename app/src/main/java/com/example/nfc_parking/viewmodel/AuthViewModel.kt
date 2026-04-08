@@ -29,6 +29,10 @@ class AuthViewModel : ViewModel() {
     val errorMessage = mutableStateOf("")
     val isLoading = mutableStateOf(false)
 
+    // Forgot Password State
+    val resetEmailSent = mutableStateOf(false)
+    val resetEmailError = mutableStateOf("")
+
     /**
      * Initialize Google Sign In (safe - won't crash if not configured)
      */
@@ -168,6 +172,46 @@ class AuthViewModel : ViewModel() {
                 errorMessage.value = e.message ?: "Unknown error"
             }
         }
+    }
+
+    /**
+     * Send Password Reset Email
+     */
+    fun sendPasswordResetEmail(emailAddress: String) {
+        if (emailAddress.isBlank()) {
+            resetEmailError.value = "Please enter your email address"
+            return
+        }
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(emailAddress).matches()) {
+            resetEmailError.value = "Invalid email format"
+            return
+        }
+
+        isLoading.value = true
+        resetEmailError.value = ""
+        resetEmailSent.value = false
+
+        viewModelScope.launch {
+            try {
+                auth.sendPasswordResetEmail(emailAddress.trim()).await()
+                isLoading.value = false
+                resetEmailSent.value = true
+                android.util.Log.d("AuthViewModel", "Password reset email sent to $emailAddress")
+            } catch (e: Exception) {
+                android.util.Log.e("AuthViewModel", "Password reset failed: ${e.message}", e)
+                isLoading.value = false
+                resetEmailError.value = when {
+                    e.message?.contains("user-not-found") == true -> "No account found with this email"
+                    e.message?.contains("network") == true -> "Network error. Please try again."
+                    else -> "Failed to send reset email. Try again."
+                }
+            }
+        }
+    }
+
+    fun clearResetState() {
+        resetEmailSent.value = false
+        resetEmailError.value = ""
     }
 
     /**

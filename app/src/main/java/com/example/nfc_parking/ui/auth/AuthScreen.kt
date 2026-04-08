@@ -44,10 +44,129 @@ fun AuthScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
     val isDarkTheme by ThemeManager.isDarkTheme
+    val resetEmailSent by viewModel.resetEmailSent
+    val resetEmailError by viewModel.resetEmailError
+
+    // Forgot Password Dialog State
+    var showForgotPasswordDialog by remember { mutableStateOf(false) }
+    var forgotPasswordEmail by remember { mutableStateOf("") }
 
     // Initialize Google Sign-In
     LaunchedEffect(Unit) {
         viewModel.initializeGoogleSignIn(context)
+    }
+
+    // Forgot Password Dialog
+    if (showForgotPasswordDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showForgotPasswordDialog = false
+                forgotPasswordEmail = ""
+                viewModel.clearResetState()
+            },
+            title = {
+                Text(
+                    text = "Reset Password",
+                    fontWeight = FontWeight.Bold,
+                    color = if (isDarkTheme) Color.White else Color(0xFF1F2937)
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Enter your email address and we'll send you a link to reset your password.",
+                        fontSize = 14.sp,
+                        color = if (isDarkTheme) Color(0xFF9CA3AF) else Color(0xFF6B7280)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = forgotPasswordEmail,
+                        onValueChange = {
+                            forgotPasswordEmail = it
+                            viewModel.clearResetState()
+                        },
+                        label = { Text("Email") },
+                        placeholder = { Text("Enter your email") },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Email,
+                                contentDescription = null,
+                                tint = if (isDarkTheme) Color(0xFF39FF14) else Color(0xFF1E3A8A)
+                            )
+                        },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        enabled = !isLoading
+                    )
+                    if (resetEmailError.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = resetEmailError,
+                            color = Color(0xFFFF4444),
+                            fontSize = 13.sp
+                        )
+                    }
+                    if (resetEmailSent) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "✅ Reset link sent! Check your inbox.",
+                            color = Color(0xFF4CAF50),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (resetEmailSent) {
+                            showForgotPasswordDialog = false
+                            forgotPasswordEmail = ""
+                            viewModel.clearResetState()
+                        } else {
+                            viewModel.sendPasswordResetEmail(forgotPasswordEmail)
+                        }
+                    },
+                    enabled = !isLoading,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isDarkTheme) Color(0xFF39FF14) else Color(0xFF1E3A8A)
+                    )
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = if (isDarkTheme) Color.Black else Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = if (resetEmailSent) "Done" else "Send Reset Link",
+                            color = if (isDarkTheme) Color.Black else Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            },
+            dismissButton = {
+                if (!resetEmailSent) {
+                    TextButton(
+                        onClick = {
+                            showForgotPasswordDialog = false
+                            forgotPasswordEmail = ""
+                            viewModel.clearResetState()
+                        }
+                    ) {
+                        Text(
+                            text = "Cancel",
+                            color = if (isDarkTheme) Color(0xFF9CA3AF) else Color(0xFF6B7280)
+                        )
+                    }
+                }
+            },
+            containerColor = if (isDarkTheme) Color(0xFF1A1A1A) else Color.White
+        )
     }
 
     // Google Sign-In Launcher
@@ -448,7 +567,9 @@ fun AuthScreen(
                     text = "Forgot Password?",
                     modifier = Modifier.clickable {
                         if (!isLoading) {
-                            // TODO: Implement forgot password logic
+                            forgotPasswordEmail = email
+                            viewModel.clearResetState()
+                            showForgotPasswordDialog = true
                         }
                     },
                     color = accentColor,

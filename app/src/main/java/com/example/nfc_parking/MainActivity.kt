@@ -19,6 +19,7 @@ import com.example.nfc_parking.navigation.AppNavGraph
 import com.example.nfc_parking.navigation.NavRoutes
 import com.example.nfc_parking.ui.theme.Nfc_parkingTheme
 import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -61,13 +62,17 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
 
-                    // Check if user has completed permissions
+                    // Check login/permissions state to determine start screen
                     val hasCompletedPermissions = preferencesManager.hasCompletedPermissions()
+                    val firebaseUser = FirebaseAuth.getInstance().currentUser
 
-                    val startDestination = if (hasCompletedPermissions) {
-                        NavRoutes.AUTH
-                    } else {
-                        NavRoutes.PERMISSIONS
+                    val startDestination = when {
+                        // ✅ Already logged in — skip everything, go straight to home
+                        firebaseUser != null -> NavRoutes.HOME
+                        // Permissions not done yet — show permission screen
+                        !hasCompletedPermissions -> NavRoutes.PERMISSIONS
+                        // Permissions done but not logged in — show login
+                        else -> NavRoutes.AUTH
                     }
 
                     AppNavGraph(
