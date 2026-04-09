@@ -203,12 +203,16 @@ class AuthViewModel : ViewModel() {
                 resetEmailError.value = when {
                     e.message?.contains("user-not-found") == true -> "No account found with this email"
                     e.message?.contains("network") == true -> "Network error. Please try again."
+                    e.message?.contains("too-many-requests") == true -> "Too many attempts. Please try again later."
                     else -> "Failed to send reset email. Try again."
                 }
             }
         }
     }
 
+    /**
+     * Clear forgot password dialog state
+     */
     fun clearResetState() {
         resetEmailSent.value = false
         resetEmailError.value = ""

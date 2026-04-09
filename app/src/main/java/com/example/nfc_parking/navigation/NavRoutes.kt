@@ -12,12 +12,17 @@ object NavRoutes {
     const val ADD_VEHICLE = "add_vehicle"
     const val EDIT_VEHICLE = "edit_vehicle"
     const val ALERTS = "alerts"
-    const val BOOKING_CONFIRMATION = "booking_confirmation"  // ✅ Add this
-    const val PARKING_TICKET = "parking_ticket"  // ✅ Add this
+    const val BOOKING_CONFIRMATION = "booking_confirmation"
+    const val PARKING_TICKET = "parking_ticket"
 
     const val PARKING_DETAIL = "parking_detail/{locationId}"
     const val SELECT_SPACE = "select_space/{locationId}/{locationName}"
     const val PAYMENT = "payment"
+
+    const val VEHICLES = "vehicles"
+    const val PAYMENT_RECEIPTS = "payment_receipts"
+    const val EV_CHARGING = "ev_charging"
+    const val TERMS_CONDITIONS = "terms_conditions"
 
     fun parkingDetail(locationId: String) = "parking_detail/$locationId"
     fun selectSpace(locationId: String, locationName: String) = "select_space/$locationId/$locationName"

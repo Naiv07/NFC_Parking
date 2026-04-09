@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.nfc_parking.data.ThemeManager
+import com.example.nfc_parking.navigation.NavRoutes
 
 @Composable
 fun ProfileScreen(
@@ -30,11 +31,12 @@ fun ProfileScreen(
     userName: String,
     profileImageUrl: String? = null,
     headerImageUrl: String? = null,
+
     onNavigateToVehicles: () -> Unit,
     onNavigateToPayments: () -> Unit,
     onNavigateToEVCharging: () -> Unit,
     onNavigateToTerms: () -> Unit,
-    // ✅ REMOVED: onNavigateToBookings: () -> Unit,
+
     onLogout: () -> Unit,
     onBack: () -> Unit
 ) {

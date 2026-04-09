@@ -36,6 +36,10 @@ import com.example.nfc_parking.ui.alerts.AlertsScreen
 import com.example.nfc_parking.ui.permissions.PermissionScreen
 import com.example.nfc_parking.ui.ticket.ParkingTicketScreen
 import com.example.nfc_parking.data.BookingManager
+import com.example.nfc_parking.ui.profile.EVChargingScreen
+import com.example.nfc_parking.ui.profile.PaymentReceiptsScreen
+import com.example.nfc_parking.ui.profile.TermsConditionsScreen
+
 
 @Composable
 fun AppNavGraph(
@@ -44,7 +48,7 @@ fun AppNavGraph(
     preferencesManager: UserPreferencesManager
 ) {
     val bookingViewModel: BookingViewModel = viewModel()
-    val scope = rememberCoroutineScope()  // ✅ ADD THIS
+    val scope = rememberCoroutineScope()
 
     NavHost(
         navController = navController,
@@ -55,7 +59,6 @@ fun AppNavGraph(
         composable(NavRoutes.PERMISSIONS) {
             PermissionScreen(
                 onAllPermissionsGranted = {
-                    // ✅ Save that permissions are done so we skip this screen on next launch
                     preferencesManager.setPermissionsCompleted(true)
                     navController.navigate(NavRoutes.AUTH) {
                         popUpTo(NavRoutes.PERMISSIONS) { inclusive = true }
@@ -67,7 +70,7 @@ fun AppNavGraph(
         // AUTHENTICATION SCREEN (Second - has Google Sign-In)
         composable(NavRoutes.AUTH) {
             val viewModel: AuthViewModel = viewModel()
-            AuthScreen(  // ← This has Google Sign-In button
+            AuthScreen(
                 viewModel = viewModel,
                 preferencesManager = preferencesManager,
                 onAuthSuccess = {
@@ -89,7 +92,7 @@ fun AppNavGraph(
             )
         }
 
-        // HOME SCREEN - NOW WITH BOOKINGS NAVIGATION
+        // HOME SCREEN
         composable(NavRoutes.HOME) {
             LaunchedEffect(Unit) {
                 bookingViewModel.clearBooking()
@@ -172,19 +175,18 @@ fun AppNavGraph(
             }
         }
 
-        // BOOKINGS HISTORY SCREEN - SHOWS ALL BOOKINGS (ACTIVE, CANCELLED, COMPLETED, PAST)
+        // BOOKINGS HISTORY SCREEN
         composable(NavRoutes.BOOKINGS_HISTORY) {
             BookingsHistoryScreen(
                 onBack = { navController.popBackStack() }
             )
         }
 
-        // ✅ PARKING TICKET SCREEN - VIEW TICKET FROM ALERTS OR BOOKINGS
+        // PARKING TICKET SCREEN
         composable(NavRoutes.PARKING_TICKET) {
             val booking by bookingViewModel.currentBooking
 
             if (booking != null) {
-                // ✅ Reload booking from Firebase to get latest data
                 var liveBooking by remember { mutableStateOf(booking) }
 
                 LaunchedEffect(booking!!.bookingId) {
@@ -194,7 +196,7 @@ fun AppNavGraph(
                             liveBooking = updated
                             bookingViewModel.setBooking(updated)
                         }
-                        delay(5000) // Update every 5 seconds
+                        delay(5000)
                     }
                 }
 
@@ -221,7 +223,6 @@ fun AppNavGraph(
             AlertsScreen(
                 onBack = { navController.popBackStack() },
                 onNavigateToTicket = { bookingId ->
-                    // ✅ Load booking and navigate to ticket
                     scope.launch {
                         android.util.Log.d("Navigation", "Loading booking: $bookingId")
                         val booking = BookingManager.getBooking(bookingId)
@@ -252,10 +253,10 @@ fun AppNavGraph(
                 userName = userName,
                 profileImageUrl = null,
                 headerImageUrl = null,
-                onNavigateToVehicles = { navController.navigate("vehicles") },
-                onNavigateToPayments = { navController.navigate("payments") },
-                onNavigateToEVCharging = { navController.navigate("ev_charging") },
-                onNavigateToTerms = { navController.navigate("terms") },
+                onNavigateToVehicles = { navController.navigate(NavRoutes.VEHICLES) },
+                onNavigateToPayments = { navController.navigate(NavRoutes.PAYMENT_RECEIPTS) },
+                onNavigateToEVCharging = { navController.navigate(NavRoutes.EV_CHARGING) },
+                onNavigateToTerms = { navController.navigate(NavRoutes.TERMS_CONDITIONS) },
                 onLogout = {
                     viewModel.logout(preferencesManager) {
                         navController.navigate(NavRoutes.AUTH) {
@@ -268,14 +269,24 @@ fun AppNavGraph(
         }
 
         // VEHICLES SCREEN
-        composable("vehicles") {
+        composable(NavRoutes.VEHICLES) {
             VehiclesScreen(onBack = { navController.popBackStack() })
         }
 
-        // PLACEHOLDER SCREENS
-        composable("payments") { }
-        composable("ev_charging") { }
-        composable("terms") { }
+        // PAYMENT & RECEIPTS SCREEN
+        composable(NavRoutes.PAYMENT_RECEIPTS) {
+            PaymentReceiptsScreen(onBack = { navController.popBackStack() })
+        }
+
+        // EV CHARGING SCREEN
+        composable(NavRoutes.EV_CHARGING) {
+            EVChargingScreen(onBack = { navController.popBackStack() })
+        }
+
+        // TERMS & CONDITIONS SCREEN
+        composable(NavRoutes.TERMS_CONDITIONS) {
+            TermsConditionsScreen(onBack = { navController.popBackStack() })
+        }
     }
 }
 

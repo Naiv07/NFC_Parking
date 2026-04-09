@@ -1,8 +1,6 @@
 package com.example.nfc_parking.data
 
 import androidx.compose.runtime.mutableStateListOf
-import com.example.nfc_parking.ui.vehicles.Vehicle
-import com.example.nfc_parking.ui.vehicles.VehicleType
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
